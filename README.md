@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="assets/logo.png" width="120" alt="Library of Yore Logo">
+<img src="Library of Yore/assets/logo.png" width="120" alt="Library of Yore Logo">
 
 # Library of Yore
 
