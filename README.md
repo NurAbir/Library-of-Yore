@@ -93,7 +93,7 @@ See the [User Manual](USER_MANUAL.md) for detailed instructions.
 
 ```bash
 # Clone the repository
-git clone [https://github.com/yourusername/libraryofyore.git](https://github.com/NurAbir/Library-of-Yore)
+git clone https://github.com/NurAbir/Library-of-Yore
 cd libraryofyore
 
 # Create virtual environment
