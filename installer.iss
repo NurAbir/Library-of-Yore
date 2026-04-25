@@ -30,7 +30,7 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 
 [Files]
 ; Folder build (matches build_release.bat --onedir output)
-Source: "dist\LibraryOfYore\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "dist\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 ; Single-file build alternative (uncomment if using --onefile):
 ; Source: "dist\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
 

@@ -50,8 +50,8 @@ class AddNovelDialog(QDialog):
         self.scraped_cover_url = ""
 
         self.setWindowTitle("Edit Novel" if self.is_edit else "Add Novel")
-        self.setMinimumSize(750, 850)
-        self.resize(800, 900)
+        self.setMinimumSize(750, 600)
+        self.resize(800, 800)
         self._build_ui()
         if self.is_edit:
             self._load_novel_data()
@@ -278,10 +278,17 @@ class AddNovelDialog(QDialog):
         self.cancel_btn.clicked.connect(self.reject)
         btn_layout.addWidget(self.cancel_btn)
 
-        layout.addLayout(btn_layout)
+        # buttons moved outside scroll area below
 
         scroll.setWidget(container)
         main_layout.addWidget(scroll)
+
+        # === BUTTONS (outside scroll, always visible) ===
+        btn_separator = QFrame()
+        btn_separator.setFrameShape(QFrame.Shape.HLine)
+        btn_separator.setStyleSheet("color: #333;")
+        main_layout.addWidget(btn_separator)
+        main_layout.addLayout(btn_layout)
 
         # Global style
         self.setStyleSheet("""
