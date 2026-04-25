@@ -53,12 +53,6 @@ Supports **Novelfire**, **Wuxiaworld**, **FreeWebNovel**, and **NovelUpdates**.
 
 ---
 
-## Screenshots
-
-*(Add screenshots here once you have them)*
-
----
-
 ## Requirements
 
 - **Windows 10/11**
@@ -79,7 +73,7 @@ During install, choose **"Install MongoDB as a Service"** so it starts automatic
 ### 2. Get Library of Yore
 
 **Option A — Portable (Recommended)**
-Download `LibraryOfYore.exe` from the [Releases](https://github.com/yourusername/libraryofyore/releases) page. Drop it anywhere and run it. No installation needed.
+Download `LibraryOfYore.exe` from the [Releases](https://github.com/NurAbir/Library-of-Yore/releases) page. Drop it anywhere and run it. No installation needed.
 
 **Option B — Installer**
 Download `LibraryOfYore_Setup.exe` and run it to install to Program Files with a Start Menu shortcut.
