@@ -37,14 +37,26 @@ class BaseScraper:
         raise NotImplementedError
 
     def _extract_chapter_number(self, text: str) -> Optional[int]:
-        """Try to extract a chapter count from text like '1,234 Chapters'."""
+        """Try to extract a chapter count from text like '1,234 Chapters' or '2111 Chapters'."""
         if not text:
             return None
-        # Remove commas and look for numbers
-        cleaned = text.replace(",", "").replace(".", "")
-        matches = re.findall(r"(\d+)", cleaned)
+        # Try to find chapter-specific patterns first
+        patterns = [
+            r"(\d{1,3}(?:,\d{3})+|\d+)\s*[Cc]hapters?",
+            r"(\d{1,3}(?:,\d{3})+|\d+)\s*[Cc]hs?",
+            r"[Ll]atest\s*:?\s*[Cc]hapter\s*(\d+)",
+            r"[Cc]hapter\s*(\d{1,3}(?:,\d{3})+|\d+)",
+            r"(\d{1,3}(?:,\d{3})+|\d+)\s*\|\s*(?:Ongoing|Completed|Hiatus)",
+        ]
+        for pat in patterns:
+            m = re.search(pat, text)
+            if m:
+                num_str = m.group(1).replace(",", "")
+                return int(num_str)
+        # Fallback: grab the largest number in the text
+        matches = re.findall(r"(\d{1,3}(?:,\d{3})+|\d+)", text)
         if matches:
-            return int(matches[-1])  # last number is usually the total
+            return max(int(m.replace(",", "")) for m in matches)
         return None
 
     def _normalize_status(self, text: str) -> str:

@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="Library of Yore/assets/logo.png" width="120" alt="Library of Yore Logo">
+<img src="assets/logo.png" width="120" alt="Library of Yore Logo">
 
 # Library of Yore
 
@@ -12,8 +12,17 @@ Built with Python, PyQt6, and MongoDB.
 [![PyQt6](https://img.shields.io/badge/PyQt6-6.4+-green.svg)](https://riverbankcomputing.com/software/pyqt)
 [![MongoDB](https://img.shields.io/badge/MongoDB-Community-brightgreen.svg)](https://mongodb.com)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Version](https://img.shields.io/badge/Version-1.0.1-orange.svg)](CHANGELOG.md)
 
 </div>
+
+---
+
+## Description
+
+**Library of Yore** is a desktop application for tracking your web novel reading progress. Paste a novel URL and it automatically fetches the title, author, cover, synopsis, and chapter count. Track where you left off, filter by status, and export your library to Excel.
+
+Supports **Novelfire**, **Wuxiaworld**, **FreeWebNovel**, and **NovelUpdates**.
 
 ---
 
@@ -22,13 +31,25 @@ Built with Python, PyQt6, and MongoDB.
 | Feature | Description |
 |---------|-------------|
 | **Visual Library** | Grid view with cover images, progress bars, and status badges |
-| **Auto-Scrape Metadata** | Paste a URL from Webnovel.com or Novelfire.net and fetch title, author, cover, synopsis, and chapter count automatically |
+| **Auto-Scrape Metadata** | Paste a URL and fetch title, author, cover, synopsis, and chapter count automatically |
 | **Chapter Tracking** | Track current chapter, total chapters, and completion percentage |
 | **Status Management** | Ongoing, Completed, Hiatus, Dropped, Planned |
 | **Search & Filter** | Filter by status, search by title/author/notes, sort by last read / rating / progress |
 | **Cover Storage** | Images stored in MongoDB GridFS — your entire library is one database |
 | **Excel Export** | Export your entire library to `.xlsx` with one click |
 | **Dark Theme** | Gold and navy palette — easy on the eyes for long reading sessions |
+| **Single-File Portable** | Distributes as one standalone `.exe` — no installation required |
+
+---
+
+## Supported Sites
+
+| Site | URL Example |
+|------|-------------|
+| [Novelfire](https://novelfire.net) | `https://novelfire.net/book/shadow-slave` |
+| [Wuxiaworld](https://www.wuxiaworld.com) | `https://www.wuxiaworld.com/novel/renegade-immortal` |
+| [FreeWebNovel](https://freewebnovel.com) | `https://freewebnovel.com/novel/lord-of-the-mysteries` |
+| [NovelUpdates](https://www.novelupdates.com) | `https://www.novelupdates.com/series/lord-of-the-mysteries/` |
 
 ---
 
@@ -41,8 +62,8 @@ Built with Python, PyQt6, and MongoDB.
 ## Requirements
 
 - **Windows 10/11**
-- **MongoDB Community Server** (separate install)
-- **Python 3.10+** (for development only)
+- **MongoDB Community Server** (separate install — see [Quick Start](#quick-start))
+- **Python 3.10+** (development only — not needed to run the `.exe`)
 
 ---
 
@@ -50,21 +71,27 @@ Built with Python, PyQt6, and MongoDB.
 
 ### 1. Install MongoDB
 
-Download and install MongoDB Community Server:  
+Download and install MongoDB Community Server:
 https://www.mongodb.com/try/download/community
 
-During install, choose **"Install MongoDB as a Service"**.
+During install, choose **"Install MongoDB as a Service"** so it starts automatically with Windows.
 
-### 2. Install Library of Yore
+### 2. Get Library of Yore
 
-Download the latest release from [Releases](https://github.com/yourusername/libraryofyore/releases) and run `LibraryOfYore_Setup.exe`.
+**Option A — Portable (Recommended)**
+Download `LibraryOfYore.exe` from the [Releases](https://github.com/yourusername/libraryofyore/releases) page. Drop it anywhere and run it. No installation needed.
+
+**Option B — Installer**
+Download `LibraryOfYore_Setup.exe` and run it to install to Program Files with a Start Menu shortcut.
 
 ### 3. First Launch
 
 On first run, the app checks `localhost:27017` for MongoDB.
 
-- **Connected** → main window opens
+- **Connected** → main window opens immediately
 - **Not found** → setup wizard guides you to download or start MongoDB
+
+See the [User Manual](USER_MANUAL.md) for detailed instructions.
 
 ---
 
@@ -82,7 +109,7 @@ venv\Scripts\activate
 # Install dependencies
 pip install -r requirements.txt
 
-# Install Playwright browsers
+# Install Playwright browsers (needed for Novelfire fallback)
 playwright install chromium
 
 # Run the app
@@ -94,15 +121,26 @@ python main.py
 ## Building from Source
 
 ```bash
-# Build standalone executable (folder mode recommended)
-python build.py --folder
-
-# Or single-file .exe
+# Build single-file portable .exe (default)
 python build.py
 
-# Create Windows installer (requires Inno Setup)
-# Open installer.iss in Inno Setup Compiler and click Build
+# Build as folder — faster startup, useful for debugging
+python build.py --folder
+
+# Clean old build artifacts first
+python build.py --clean
+
+# Or just double-click the batch file
+build.bat
 ```
+
+> **Note:** `build.bat` produces a single `dist\LibraryOfYore.exe`. The first launch after a fresh build is ~2–4 seconds slower as PyInstaller extracts itself; subsequent launches are faster.
+
+### Creating a Windows Installer (optional)
+
+1. Install [Inno Setup 6](https://jrsoftware.org/isdl.php)
+2. Run `build_release.bat` — it builds the exe and then calls Inno Setup automatically
+3. Output: `installer\LibraryOfYore_Setup.exe`
 
 ---
 
@@ -110,29 +148,33 @@ python build.py
 
 ```
 libraryofyore/
-├── main.py                 # Entry point
+├── main.py                 # Entry point — also writes crash_log.txt on startup failure
 ├── config.py               # App configuration, paths, asset loader
 ├── requirements.txt        # Python dependencies
-├── build.py                # PyInstaller build script
-├── installer.iss           # Inno Setup installer config
-├── .gitignore              # Git ignore rules
-├── LICENSE                 # MIT License
+├── build.py                # PyInstaller build script (--folder / default onefile)
+├── build.bat               # One-click single-file portable build
+├── build_release.bat       # Full automated build + Inno Setup installer
+├── installer.iss           # Inno Setup installer config (folder-mode build)
+├── .gitignore
+├── LICENSE
 ├── README.md               # This file
 ├── USER_MANUAL.md          # Detailed user guide
 │
 ├── assets/
-│   ├── logo.png            # App logo (PNG)
+│   ├── logo.png            # App logo
 │   └── logo.ico            # Windows icon
 │
 ├── database/
-│   ├── connection.py       # MongoDB client + first-time setup
+│   ├── connection.py       # MongoDB client singleton + connection test
 │   └── models.py           # Novel dataclass + NovelRepository (CRUD + GridFS)
 │
 ├── scrapers/
-│   ├── __init__.py         # Scraper factory
-│   ├── base.py             # BaseScraper + ScraperResult
-│   ├── webnovel.py         # Webnovel.com scraper (Playwright)
-│   └── novelfire.py        # Novelfire.net scraper (requests + BS4 fallback)
+│   ├── __init__.py         # Scraper factory (get_scraper_for_url)
+│   ├── base.py             # BaseScraper + ScraperResult dataclass
+│   ├── novelfire.py        # Novelfire.net scraper (requests + Playwright fallback)
+│   ├── wuxiaworld.py       # Wuxiaworld.com scraper
+│   ├── freewebnovel.py     # FreeWebNovel.com scraper
+│   └── novelupdates.py     # NovelUpdates.com scraper
 │
 ├── ui/
 │   ├── setup_wizard.py     # First-time MongoDB setup dialog
@@ -148,23 +190,17 @@ libraryofyore/
 
 ## Data Storage
 
-All data is stored locally in your MongoDB instance:
+All data is stored **locally** in your MongoDB instance — nothing leaves your machine.
 
-| Database | `libraryofyore` |
-|----------|----------------|
-| **Collection** | `novels` — novel metadata, progress, history |
+| | |
+|---|---|
+| **Database** | `libraryofyore` |
+| **Collection** | `novels` — metadata, progress, reading history |
 | **GridFS** | `covers.files` / `covers.chunks` — cover images |
 
-Your data never leaves your machine. Backup with `mongodump` or export to Excel anytime.
-
----
-
-## Supported Sites
-
-| Site | Scraper Method | Notes |
-|------|---------------|-------|
-| [webnovel.com](https://www.webnovel.com) | Playwright (headless Chromium) | JavaScript-rendered SPA |
-| [novelfire.net](https://novelfire.net) | requests + BeautifulSoup, Playwright fallback | Static HTML with JS hydration |
+**Backup:** `mongodump --db libraryofyore --out C:\backup\`
+**Restore:** `mongorestore --db libraryofyore C:\backup\libraryofyore\`
+**Portable backup:** Use the Excel export feature.
 
 ---
 
@@ -172,10 +208,12 @@ Your data never leaves your machine. Backup with `mongodump` or export to Excel 
 
 | Issue | Solution |
 |-------|----------|
-| "Cannot reach MongoDB server" | Start the service: `net start MongoDB` in admin CMD |
-| Scraping fails | The site may have changed. Use manual entry or report an issue |
-| Covers don't load | Check internet connection; covers download on first fetch |
-| App won't start | Delete `%LOCALAPPDATA%\LibraryOfYore\config.json` to reset |
+| "Cannot reach MongoDB server" | Run `net start MongoDB` in an admin Command Prompt |
+| Scraping fails | Site layout may have changed — use Manual Entry instead |
+| Covers don't load | Check internet; try Fetch Metadata again |
+| App won't start (no window) | Check `crash_log.txt` next to the `.exe` for the error |
+| App settings corrupted | Delete `%LOCALAPPDATA%\LibraryOfYore\config.json` to reset |
+| Chapters show wrong number | Update to v1.0.1+ — the 4-digit chapter bug is fixed |
 
 ---
 
@@ -187,6 +225,16 @@ Your data never leaves your machine. Backup with `mongodump` or export to Excel 
 4. Push to the branch: `git push origin feature/my-feature`
 5. Open a Pull Request
 
+To add a new scraper site, inherit from `BaseScraper` in `scrapers/`, implement `scrape()`, and register it in `scrapers/__init__.py`.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for full details.
+
+---
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for version history.
+
 ---
 
 ## License
@@ -197,6 +245,6 @@ Your data never leaves your machine. Backup with `mongodump` or export to Excel 
 
 <div align="center">
 
-Made with for readers everywhere.
+Made with care for readers everywhere.
 
 </div>

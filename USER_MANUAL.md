@@ -1,382 +1,506 @@
 # Library of Yore — User Manual
 
-A complete guide to using Library of Yore, your personal web novel bookmark tracker.
+**Version 1.0.1**
+
+A complete guide to installing, using, and troubleshooting Library of Yore — your personal desktop web novel tracker.
 
 ---
 
 ## Table of Contents
 
-1. [Getting Started](#getting-started)
-2. [First Launch](#first-launch)
-3. [Adding a Novel](#adding-a-novel)
-4. [The Main Library](#the-main-library)
-5. [Editing a Novel](#editing-a-novel)
-6. [Tracking Progress](#tracking-progress)
-7. [Search & Filter](#search--filter)
-8. [Exporting Your Library](#exporting-your-library)
-9. [Settings & Configuration](#settings--configuration)
-10. [Troubleshooting](#troubleshooting)
+1. [System Requirements](#1-system-requirements)
+2. [Installing MongoDB](#2-installing-mongodb)
+3. [Installing Library of Yore](#3-installing-library-of-yore)
+4. [First Launch & Setup Wizard](#4-first-launch--setup-wizard)
+5. [Adding a Novel](#5-adding-a-novel)
+6. [The Main Library](#6-the-main-library)
+7. [Editing a Novel](#7-editing-a-novel)
+8. [Tracking Reading Progress](#8-tracking-reading-progress)
+9. [Search, Filter & Sort](#9-search-filter--sort)
+10. [Exporting Your Library](#10-exporting-your-library)
+11. [Settings & Configuration](#11-settings--configuration)
+12. [Data Backup & Migration](#12-data-backup--migration)
+13. [Building from Source](#13-building-from-source)
+14. [Troubleshooting](#14-troubleshooting)
+15. [Keyboard Shortcuts](#15-keyboard-shortcuts)
+16. [FAQ](#16-faq)
 
 ---
 
-## Getting Started
+## 1. System Requirements
 
-### System Requirements
+| Component | Minimum |
+|-----------|---------|
+| **OS** | Windows 10 or Windows 11 (64-bit) |
+| **RAM** | 4 GB (8 GB recommended) |
+| **Storage** | 200 MB for the app + space for cover images |
+| **Internet** | Required for scraping metadata and downloading covers |
+| **Database** | MongoDB Community Server (free, separate install) |
 
-- **Operating System:** Windows 10 or Windows 11
-- **RAM:** 4 GB minimum (8 GB recommended)
-- **Storage:** 200 MB for the app + space for your library
-- **Internet:** Required for scraping novel metadata and downloading covers
-- **Database:** MongoDB Community Server (installed separately)
+Python is **not** required to run the portable `.exe` or the installer build.
 
-### Installing MongoDB
+---
 
-Library of Yore requires MongoDB to store your novel data. Here is how to install it:
+## 2. Installing MongoDB
 
-1. Go to https://www.mongodb.com/try/download/community
+Library of Yore uses MongoDB as its local database. Your data never leaves your machine.
+
+### Steps
+
+1. Go to: https://www.mongodb.com/try/download/community
 2. Download the **MongoDB Community Server MSI** for Windows
 3. Run the installer
-4. When prompted, check **"Install MongoDB as a Service"**
+4. On the **Service Configuration** screen, check **"Install MongoDB as a Service"**
+   - This makes MongoDB start automatically every time Windows boots
 5. Complete the installation
-6. MongoDB will now run automatically when Windows starts
 
-To verify MongoDB is running, open Command Prompt as Administrator and type:
+### Verify MongoDB is Running
+
+Open Command Prompt as Administrator and run:
 
 ```cmd
 net start MongoDB
 ```
 
-If it says "The requested service has already been started," you are good to go.
+You will see one of two responses:
 
-### Installing Library of Yore
+| Response | Meaning |
+|----------|---------|
+| `The MongoDB Server service is starting` | Starting now — wait a moment |
+| `The requested service has already been started` | Already running — you're good |
+| `The service name is invalid` | MongoDB is not installed as a service — reinstall and check the Service option |
 
-**Option A: Installer (Recommended)**
+### If You Need a Custom Port
 
-1. Download `LibraryOfYore_Setup.exe` from the Releases page
-2. Run the installer
-3. Follow the setup wizard
-4. Launch Library of Yore from the Start Menu or Desktop
-
-**Option B: Portable (No Install)**
-
-1. Download the portable ZIP from the Releases page
-2. Extract to any folder
-3. Run `LibraryOfYore.exe`
+By default MongoDB runs on port `27017`. If you need a different port, update the connection string in Settings after launch (see [Section 11](#11-settings--configuration)).
 
 ---
 
-## First Launch
+## 3. Installing Library of Yore
 
-When you open Library of Yore for the first time, it will check if MongoDB is available on `localhost:27017`.
+### Option A — Portable Executable (Recommended)
 
-### If MongoDB is Running
+The portable version is a **single `.exe` file** — no installer, no admin rights needed.
 
-The main window opens immediately. You are ready to add novels.
+1. Download `LibraryOfYore.exe` from the Releases page
+2. Place it anywhere (Desktop, a USB drive, a folder of your choice)
+3. Double-click to run
+
+> **First launch note:** The first time you open the portable exe it takes 3–5 seconds to unpack itself. Every launch after that is faster.
+
+If the app crashes silently on startup, look for a file called `crash_log.txt` in the same folder as the `.exe`. It contains the full error message.
+
+### Option B — Windows Installer
+
+1. Download `LibraryOfYore_Setup.exe` from the Releases page
+2. Double-click and follow the wizard
+3. Launch from the Start Menu or the optional Desktop shortcut
+
+---
+
+## 4. First Launch & Setup Wizard
+
+On the very first launch, Library of Yore checks for MongoDB at `localhost:27017`.
+
+### If MongoDB is Found
+
+The main window opens immediately. Skip ahead to [Section 5](#5-adding-a-novel).
 
 ### If MongoDB is Not Found
 
-A **Setup Wizard** appears with these options:
+The **Setup Wizard** appears. It offers the following actions:
 
 | Button | What It Does |
 |--------|--------------|
 | **Download MongoDB** | Opens the official MongoDB download page in your browser |
-| **Start MongoDB Service** | Attempts to start the MongoDB Windows service |
-| **Retry Connection** | Tests the connection again |
-| **MongoDB URI** | Edit the connection string if MongoDB is on a custom port |
+| **Start MongoDB Service** | Tries to start the MongoDB Windows service right now |
+| **Retry Connection** | Tests the connection again after you've started MongoDB |
+| **Change URI** | Edit the connection string (useful for non-default ports or remote hosts) |
+| **Continue** | Proceed once the connection test passes |
 
-Once connected, click **Continue** to open the main window.
+**Common fix:** Click **Start MongoDB Service**, wait 5 seconds, then click **Retry Connection**.
 
 ---
 
-## Adding a Novel
+## 5. Adding a Novel
 
-### Method 1: Auto-Scrape from URL (Recommended)
+Click **Add Novel** in the toolbar to open the Add Novel dialog.
 
-1. Click the **Add Novel** button in the toolbar
-2. Paste the novel URL into the **Source URL** field
-   - Supported: `https://www.webnovel.com/book/...`
-   - Supported: `https://novelfire.net/book/...`
-3. Click **Fetch Metadata**
-4. Wait a few seconds while the app scrapes the page
-5. The following fields auto-fill:
+### Method 1 — Auto-Scrape from URL (Recommended)
+
+This is the fastest way to add a novel with full metadata.
+
+1. Paste the novel's page URL into the **Source URL** field
+2. Click **Fetch Metadata**
+3. Wait a few seconds (the app downloads the page and extracts data)
+4. The following fields fill in automatically:
    - Title
    - Author
    - Cover image
-   - Total chapters
+   - Total chapters (supports any number, including 1000+ chapter series)
    - Synopsis
    - Genres
-   - Status (ongoing/completed)
-6. Enter your **Current Chapter** (where you left off)
-7. Adjust any fields as needed
-8. Click **Save Novel**
+   - Status (Ongoing / Completed / Hiatus)
+5. Enter your **Current Chapter** — where you left off
+6. Adjust any fields if needed
+7. Click **Save Novel**
 
-### Method 2: Manual Entry
+**Supported URLs:**
+
+| Site | Example URL |
+|------|-------------|
+| Novelfire | `https://novelfire.net/book/shadow-slave` |
+| Wuxiaworld | `https://www.wuxiaworld.com/novel/renegade-immortal` |
+| FreeWebNovel | `https://freewebnovel.com/novel/lord-of-the-mysteries` |
+| NovelUpdates | `https://www.novelupdates.com/series/lord-of-the-mysteries/` |
+
+> **Note:** NovelUpdates is a catalog site. It provides metadata but does not host chapters directly.
+
+### Method 2 — Manual Entry
+
+Use this when a site isn't supported or scraping fails.
 
 1. Click **Add Novel**
-2. Leave the URL field empty (or fill it for reference)
-3. Manually enter:
-   - **Title** (required)
+2. Leave the URL field empty (or fill it as a reference link)
+3. Fill in:
+   - **Title** *(required)*
    - Author
-   - Current / Total chapters
-   - Status
-   - Rating
-   - Genres
-   - Synopsis and Notes
-4. Optionally load a cover image from your computer
+   - Current chapter / Total chapters
+   - Status, Rating, Genres
+   - Synopsis and personal Notes
+4. Optionally add a cover (see below)
 5. Click **Save Novel**
 
-### Loading a Cover Image
+### Cover Images
 
-| Method | Steps |
-|--------|-------|
-| **From File** | Click **Load from File**, select an image (.png, .jpg, .jpeg, .webp, .bmp) |
-| **From URL** | After fetching metadata, the cover auto-downloads. Or click **Download from URL** |
-| **Clear** | Click **Clear Cover** to remove the image |
+| Method | How |
+|--------|-----|
+| **Auto** | Fetched automatically when you use Fetch Metadata |
+| **From File** | Click **Load from File** and pick a `.jpg`, `.png`, `.webp`, or `.bmp` |
+| **From URL** | Click **Download from URL** and paste a direct image link |
+| **Clear** | Click **Clear Cover** to remove the current image |
+
+All covers are stored inside MongoDB (GridFS) — they travel with your database backup.
 
 ---
 
-## The Main Library
+## 6. The Main Library
 
-The main window is divided into three areas:
+The main window has three sections.
 
 ### Left Sidebar
 
 | Control | Purpose |
 |---------|---------|
-| **Search** | Type to filter novels by title, author, or notes |
-| **Status Filters** | Check/uncheck statuses to show/hide novels |
-| **Sort By** | Choose how to order your library: Last Read, Title, Rating, Date Added, Progress % |
+| **Search box** | Filter by title, author, or notes content |
+| **Status checkboxes** | Show/hide novels by status |
+| **Sort By dropdown** | Change the ordering of results |
 
 ### Top Toolbar
 
 | Button | Action |
 |--------|--------|
-| **Add Novel** | Open the add/edit dialog |
+| **Add Novel** | Open the Add Novel dialog |
 | **Grid / List** | Toggle between cover grid and compact list view |
-| **Export Excel** | Save your library to a spreadsheet |
+| **Export Excel** | Save your full library to a `.xlsx` spreadsheet |
+| **Refresh** | Reload novels from the database |
 
-### Novel Grid
+### Novel Cards (Grid View)
 
-Each novel appears as a card showing:
+Each novel card shows:
 
-- **Cover image** (or "No Cover" placeholder)
+- **Cover image** (or a "No Cover" placeholder)
 - **Title**
-- **Status badge** (colored: blue=ongoing, gold=completed, orange=hiatus, red=dropped, purple=planned)
-- **Current chapter**
-- **Progress bar** with percentage
+- **Status badge** — color coded:
+
+| Color | Status |
+|-------|--------|
+| Blue | Ongoing |
+| Gold | Completed |
+| Orange | Hiatus |
+| Red | Dropped |
+| Purple | Planned |
+
+- **Chapter** (current / total)
+- **Progress bar** with completion percentage
 
 ### Card Actions
 
 | Action | How |
 |--------|-----|
-| **Open details** | Left-click the card |
-| **Quick +1 chapter** | Click the "+1" button |
-| **Open source URL** | Click the "Link" button |
-| **Edit / Delete** | Right-click the card for context menu |
+| Open full details / edit | Left-click the card |
+| Increment chapter by 1 | Click the **+1** button on the card |
+| Open source URL in browser | Click the **Link** button |
+| Edit or Delete | Right-click for context menu |
 
 ---
 
-## Editing a Novel
+## 7. Editing a Novel
 
-1. **Left-click** any novel card, or **right-click > Edit**
-2. The same dialog as "Add Novel" opens, pre-filled with current data
-3. Make your changes
+1. Left-click any card, or right-click → **Edit**
+2. The Edit dialog opens pre-filled with all current data
+3. Change whatever you need:
+   - Chapter progress
+   - Status, rating, notes
+   - Cover image
+   - Title, author, synopsis
 4. Click **Save Novel**
 
-You can edit anything: title, chapter progress, status, rating, notes, or replace the cover image.
+To delete a novel: right-click its card → **Delete**. This also removes its cover image from GridFS.
 
 ---
 
-## Tracking Progress
+## 8. Tracking Reading Progress
 
-### Updating Your Current Chapter
+### Updating Your Chapter
 
-**Quick method:**
-- Click the **+1** button on any card to increment by one chapter
+**Quick (one click):** Click the **+1** button on any card. The chapter count increments and the last-read timestamp updates.
 
-**Precise method:**
-- Open the novel (left-click card)
-- Change the **Current** chapter number
-- Save
+**Precise:** Open the novel → change the **Current Chapter** number → Save.
 
-### Understanding Progress
+### Progress Indicators
 
 | Indicator | Meaning |
 |-----------|---------|
-| **Progress bar** | Visual fill showing `current / total` |
-| **Percentage** | Exact completion % |
-| **Up to date** | When current chapter equals total chapters |
+| Progress bar | Visual fill: `current ÷ total` |
+| Percentage | Exact completion % |
+| "Up to date" | Current chapter equals total chapters |
 
 ### Reading History
 
-Every time you update a novel, Library of Yore records:
-- **Last Read** timestamp
-- **Read Count** (how many times you have opened/edited it)
+Every save records:
+- **Last Read** — the timestamp of your latest update
+- **Read Count** — total number of times you've updated the novel
 
-Use **Sort By: Last Read** to quickly find where you left off.
+Sort by **Last Read** to jump back to whatever you were reading most recently.
 
 ---
 
-## Search & Filter
+## 9. Search, Filter & Sort
 
 ### Search
 
-Type in the search box to find novels by:
-- Title
-- Author
-- Notes content
-
-Search is case-insensitive and updates instantly as you type.
+Type in the search box (left sidebar). Matches novels where the search text appears in the **title**, **author**, or **notes** fields. Case-insensitive. Updates instantly as you type.
 
 ### Filter by Status
 
-Check or uncheck status boxes in the sidebar:
+Toggle the checkboxes to show or hide novels in each status:
 
-- Ongoing
-- Completed
-- Hiatus
-- Dropped
-- Planned
+- ✅ Ongoing
+- ✅ Completed
+- ✅ Hiatus
+- ✅ Dropped
+- ✅ Planned
 
-Only checked statuses are shown.
+Only checked statuses are displayed.
 
-### Sorting
+### Sort Options
 
-| Sort Option | Order |
-|-------------|-------|
-| **Last Read** | Most recently read first |
-| **Title** | Alphabetical (A-Z) |
+| Option | Order |
+|--------|-------|
+| **Last Read** | Most recently updated first |
+| **Title** | A → Z alphabetical |
 | **Rating** | Highest rated first |
-| **Date Added** | Newest first |
+| **Date Added** | Newest additions first |
 | **Progress %** | Most complete first |
 
 ---
 
-## Exporting Your Library
+## 10. Exporting Your Library
 
-Library of Yore can export all your novels to an Excel spreadsheet.
+Click **Export Excel** in the toolbar. Choose a save location. The file opens in Excel or any spreadsheet app.
 
-### How to Export
-
-1. Click **Export Excel** in the toolbar
-2. Choose where to save the file
-3. The export includes these columns:
+### Exported Columns
 
 | Column | Description |
 |--------|-------------|
 | Title | Novel title |
 | Author | Author name |
 | Status | ongoing / completed / hiatus / dropped / planned |
-| Current Chapter | Where you left off |
-| Total Chapters | Total known chapters (blank if unknown) |
-| % Complete | Calculated progress |
-| Source URL | Link back to the novel |
-| Source | webnovel / novelfire / manual |
-| Last Read | ISO timestamp |
-| Date Added | When you added it |
-| Rating | Your 0-10 rating |
-| Genres | Comma-separated tags |
+| Current Chapter | Your last read chapter |
+| Total Chapters | Known total (blank if unknown) |
+| % Complete | Calculated completion percentage |
+| Source URL | Link to the novel page |
+| Source | novelfire / wuxiaworld / freewebnovel / novelupdates / manual |
+| Last Read | ISO 8601 timestamp |
+| Date Added | When you first added it |
+| Rating | Your 0–10 rating |
+| Genres | Comma-separated |
 | Notes | Your personal notes |
 
-### Use Cases
+### Uses
 
-- **Backup** your library outside MongoDB
-- **Share** your reading list with friends
-- **Analyze** your reading habits in Excel
-- **Import** into other tools
+- Human-readable backup outside MongoDB
+- Share your reading list
+- Analyse your reading history in Excel/Sheets
+- Reference when setting up on a new machine
 
 ---
 
-## Settings & Configuration
+## 11. Settings & Configuration
 
-Library of Yore stores settings in:
+Settings are saved to:
 
 ```
 %LOCALAPPDATA%\LibraryOfYore\config.json
 ```
 
-### Configuration Options
+Open this file in any text editor to edit manually.
 
-| Setting | Default | Description |
-|---------|---------|-------------|
+### Available Settings
+
+| Key | Default | Description |
+|-----|---------|-------------|
 | `mongo_uri` | `mongodb://localhost:27017` | MongoDB connection string |
 | `db_name` | `libraryofyore` | Database name |
-| `theme` | `dark` | UI theme (currently only dark) |
-| `window_size` | `[1200, 800]` | Last window dimensions |
-| `default_sort` | `last_read` | Default sort column |
-| `grid_view` | `true` | Default to grid vs list view |
+| `theme` | `dark` | UI colour theme |
+| `window_size` | `[1200, 800]` | Saved window size |
+| `default_sort` | `last_read` | Default sort field |
+| `grid_view` | `true` | Start in grid view if true, list view if false |
 
-### Resetting Settings
+### Reset to Defaults
 
-If the app misbehaves, delete `config.json` and restart. It will recreate with defaults.
+Delete `config.json` and restart the app. It recreates the file with all defaults.
 
 ---
 
-## Troubleshooting
+## 12. Data Backup & Migration
+
+### Full Backup (MongoDB Dump)
+
+```cmd
+mongodump --db libraryofyore --out C:\Backup\LibraryOfYore
+```
+
+This backs up all novels **and** all cover images stored in GridFS.
+
+### Restore
+
+```cmd
+mongorestore --db libraryofyore C:\Backup\LibraryOfYore\libraryofyore
+```
+
+### Moving to Another PC
+
+1. On the old PC: run `mongodump` as above
+2. On the new PC: install MongoDB and Library of Yore
+3. Copy the dump folder to the new PC
+4. Run `mongorestore`
+5. Launch Library of Yore — your full library appears
+
+### Lightweight Backup (Excel)
+
+Use **Export Excel** from the toolbar. This gives you a readable spreadsheet but does not include cover images. Use it as a readable reference or to re-add novels on a new machine.
+
+---
+
+## 13. Building from Source
+
+This section is for developers who want to modify and rebuild the app.
+
+### Prerequisites
+
+```cmd
+pip install -r requirements.txt
+playwright install chromium
+```
+
+### Running in Development
+
+```cmd
+python main.py
+```
+
+### Build Commands
+
+| Command | Output |
+|---------|--------|
+| `build.bat` | `dist\LibraryOfYore.exe` — single portable file |
+| `python build.py` | Same as above |
+| `python build.py --folder` | `dist\LibraryOfYore\` — folder build, faster startup |
+| `python build.py --clean` | Cleans build artifacts, then builds |
+| `build_release.bat` | Full build + Inno Setup installer |
+
+> **Single-file vs folder build:**
+> `--onefile` (default for `build.bat`) packs everything into one `.exe`. It extracts itself to a temp folder on each launch, adding ~3–5 seconds to startup. `--folder` is faster to launch but produces a folder with many files. Choose `--onefile` for distribution, `--folder` for development/debugging.
+
+### Adding a New Scraper
+
+1. Create `scrapers/mysite.py` inheriting from `BaseScraper`
+2. Implement `SOURCE_NAME`, `DOMAIN_PATTERNS`, and `scrape(url)`
+3. Register it in `scrapers/__init__.py` → `get_scraper_for_url()`
+4. Add `--hidden-import scrapers.mysite` to `build.bat` and `build.py`
+
+---
+
+## 14. Troubleshooting
+
+### App Won't Open (Silent Crash)
+
+If double-clicking the `.exe` does nothing or the window flashes and disappears:
+
+1. Look for **`crash_log.txt`** in the same folder as `LibraryOfYore.exe`
+2. Open it — the full Python traceback is there
+3. The most common causes are listed below
+
+| Error in crash_log.txt | Fix |
+|------------------------|-----|
+| `ModuleNotFoundError` | Rebuild with the latest `build.bat` (v1.0.1+) |
+| `Cannot connect to MongoDB` | Start MongoDB service (see below) |
+| `FileNotFoundError: assets/logo.ico` | Make sure the `assets/` folder is present when building |
+| Qt platform plugin error | Reinstall from a fresh build |
 
 ### Cannot Connect to MongoDB
 
-**Symptoms:** Setup wizard appears on every launch, or "Cannot reach MongoDB server" error.
+**Symptom:** Setup Wizard appears every launch, or "Cannot reach MongoDB server."
 
-**Solutions:**
+```cmd
+REM Open Command Prompt as Administrator, then:
+net start MongoDB
+```
 
-1. **Check if MongoDB service is running:**
-   ```cmd
-   net start MongoDB
-   ```
-   If it says the service does not exist, reinstall MongoDB and check "Install as Service."
+If the service doesn't exist:
+- Reinstall MongoDB and enable "Install as a Service"
 
-2. **Start the service manually:**
-   ```cmd
-   sc start MongoDB
-   ```
-
-3. **Check the port:** Open `config.json` and verify `mongo_uri` is `mongodb://localhost:27017`
-
-4. **Firewall:** Ensure Windows Firewall allows MongoDB on port 27017
+If using a non-default port:
+- Edit `%LOCALAPPDATA%\LibraryOfYore\config.json`
+- Change `mongo_uri` to your actual URI, e.g. `mongodb://localhost:27018`
 
 ### Scraping Fails
 
-**Symptoms:** "Scrape Failed" or "Could not extract title" when fetching metadata.
+**Symptom:** "Scrape Failed" or "Could not extract title" message.
 
-**Solutions:**
+- Verify the URL opens correctly in your browser
+- The website may have changed its layout — use **Manual Entry** instead
+- Novelfire uses JavaScript rendering; scraping it requires Playwright/Chromium (bundled in the exe)
+- Webnovel.com is not supported — it uses aggressive anti-bot protection
 
-- The website may have changed its layout. Use **manual entry** instead.
-- Check your internet connection.
-- Some sites block automated access. There is no workaround — manual entry is required.
-- Try the **Open** button to verify the URL loads in your browser.
+### Chapter Count Is Wrong
+
+**Symptom:** A novel with 2111 chapters shows as 111, or shows 0.
+
+- Update to **v1.0.1** — this was a regex bug in `novelfire.py` where `\d{1,3}` capped at 3 digits
+- After updating, delete and re-add the novel to re-scrape the correct count
 
 ### Cover Image Won't Load
 
-**Symptoms:** "No Cover" displayed, or download fails.
-
-**Solutions:**
-
-- Check internet connection
-- The cover URL may have expired. Try **Fetch Metadata** again
-- Manually load a cover from your computer
-
-### App Won't Start
-
-**Solutions:**
-
-1. Delete `%LOCALAPPDATA%\LibraryOfYore\config.json`
-2. Restart the app
-3. If still broken, check `logs/` folder for error details
+- Check your internet connection
+- Click **Fetch Metadata** again — the cover URL may have expired
+- Use **Load from File** to manually set a local image
 
 ### Excel Export Fails
 
-**Symptoms:** "Export Failed" error.
+- Make sure the target folder is writable (try Desktop or Documents)
+- Check that the file isn't already open in Excel
+- Ensure you have at least one novel in your library
 
-**Solutions:**
+### App Is Slow to Start
 
-- Ensure you have write permission to the chosen folder
-- Try saving to Desktop or Documents
-- Check if the file is open in another program
+This is normal for the single-file portable `.exe` on first launch — PyInstaller extracts ~30 MB to a temp folder. Subsequent launches are faster because the temp folder is cached. If you need faster startup, use the `--folder` build from source instead.
 
 ---
 
-## Keyboard Shortcuts
+## 15. Keyboard Shortcuts
 
 | Shortcut | Action |
 |----------|--------|
@@ -384,67 +508,43 @@ If the app misbehaves, delete `config.json` and restart. It will recreate with d
 | `Ctrl + R` | Refresh library |
 | `Ctrl + E` | Export to Excel |
 | `F5` | Refresh library |
-| `Delete` | Delete selected novel (when card is focused) |
-| `Enter` | Open selected novel |
+| `Delete` | Delete selected novel |
+| `Enter` | Open / edit selected novel |
 
 ---
 
-## Data Backup & Migration
+## 16. FAQ
 
-### Backing Up
+**Q: Is my data stored online or shared with anyone?**
+No. Everything is stored locally in MongoDB on your own machine. There are no accounts, no cloud sync, and no telemetry.
 
-**Method 1: MongoDB Dump (Complete)**
-```bash
-mongodump --db libraryofyore --out C:\backup\libraryofyore-$(Get-Date -Format yyyy-MM-dd)
-```
+**Q: Can I run this on macOS or Linux?**
+The source code is cross-platform Python, so `python main.py` works on any OS after installing dependencies. However, the `.bat` build scripts and installer are Windows-only. Mac/Linux users would build manually with `pyinstaller` directly.
 
-**Method 2: Excel Export (Readable)**
-Use the **Export Excel** button in the app.
+**Q: How many novels can I store?**
+MongoDB handles tens of millions of documents with ease. Your practical limit is disk space for cover images.
 
-### Restoring
+**Q: The exe is slow to open. Is something wrong?**
+No — this is expected on the first launch of the single-file build. PyInstaller unpacks itself to `%TEMP%`. It's faster from the second launch onward. Use `python build.py --folder` for a faster-starting folder build if you prefer.
 
-```bash
-mongorestore --db libraryofyore C:\backup\libraryofyore-YYYY-MM-DD\libraryofyore
-```
+**Q: Can I add support for other novel sites?**
+Yes. See [Section 13 — Adding a New Scraper](#adding-a-new-scraper).
 
-### Moving to Another PC
+**Q: Why was Webnovel.com removed?**
+Webnovel uses Cloudflare and JavaScript-heavy anti-bot protection that makes reliable scraping impossible without constant maintenance.
 
-1. Export your library to Excel
-2. Install Library of Yore and MongoDB on the new PC
-3. Re-add novels manually, or
-4. Use the Excel file as reference
+**Q: How do I back up my library?**
+Use `mongodump` for a complete backup (includes covers), or **Export Excel** from the toolbar for a human-readable reference copy. See [Section 12](#12-data-backup--migration).
 
----
-
-## FAQ
-
-**Q: Is my data stored online?**  
-A: No. Everything is stored locally in your MongoDB database. No accounts, no cloud, no tracking.
-
-**Q: Can I use this on Mac or Linux?**  
-A: The code is Python and could run on any OS, but the build scripts and installer are Windows-only. You would need to install dependencies manually and run `python main.py`.
-
-**Q: How many novels can I store?**  
-A: MongoDB handles millions of documents. Your limit is your disk space.
-
-**Q: Can I add support for other novel sites?**  
-A: Yes. Create a new scraper in `scrapers/` that inherits from `BaseScraper`, then add it to the factory in `scrapers/__init__.py`.
-
-**Q: Is there a mobile app?**  
-A: Not currently. Library of Yore is desktop-only.
-
----
-
-## Getting Help
-
-- **Bug reports:** Open an issue on GitHub
-- **Feature requests:** Open an issue with the "enhancement" label
-- **Questions:** Start a Discussion on GitHub
+**Q: Can I edit the config file directly?**
+Yes. `%LOCALAPPDATA%\LibraryOfYore\config.json` is plain JSON. Edit with any text editor. Delete it to reset all settings to defaults.
 
 ---
 
 <div align="center">
 
 **Happy Reading!**
+
+*Library of Yore v1.0.1*
 
 </div>

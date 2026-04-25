@@ -29,10 +29,10 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-; Single-file build
-Source: "dist\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
-; Or folder build:
-; Source: "dist\LibraryOfYore\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
+; Folder build (matches build_release.bat --onedir output)
+Source: "dist\LibraryOfYore\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+; Single-file build alternative (uncomment if using --onefile):
+; Source: "dist\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"

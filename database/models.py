@@ -208,13 +208,15 @@ class NovelRepository:
 
     def update_chapter_progress(self, novel_id: str, new_chapter: int, increment_read: bool = True):
         """Quick update for chapter progress."""
-        updates = {
-            "progress.current_chapter": new_chapter,
-            "history.last_read": datetime.datetime.utcnow(),
+        update_doc = {
+            "$set": {
+                "progress.current_chapter": new_chapter,
+                "history.last_read": datetime.datetime.utcnow(),
+            }
         }
         if increment_read:
-            updates["$inc"] = {"history.read_count": 1}
-        self.collection.update_one({"_id": ObjectId(novel_id)}, {"$set": updates})
+            update_doc["$inc"] = {"history.read_count": 1}
+        self.collection.update_one({"_id": ObjectId(novel_id)}, update_doc)
 
     def export_to_list(self) -> List[dict]:
         """Export all novels as flat dicts for spreadsheet."""

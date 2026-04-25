@@ -54,8 +54,7 @@ python -m PyInstaller ^
     --add-data "utils;utils" ^
     --add-data "assets;assets" ^
     --add-data "config.py;." ^
-    --hidden-import scrapers.webnovel ^
-    --hidden-import scrapers.novelfire ^
+    --hidden-import scrapers.novelfire --hidden-import scrapers.wuxiaworld --hidden-import scrapers.freewebnovel --hidden-import scrapers.novelupdates ^
     --hidden-import database.connection ^
     --hidden-import database.models ^
     --hidden-import pymongo ^
@@ -75,7 +74,8 @@ if errorlevel 1 (
 )
 
 echo [3/4] Build complete!
-echo    Location: dist\LibraryOfYoreecho    Run: dist\LibraryOfYore\LibraryOfYore.exe
+echo    Location: dist\LibraryOfYore
+echo    Run: dist\LibraryOfYore\LibraryOfYore.exe
 
 if defined SKIP_INNO (
     echo.
@@ -97,7 +97,8 @@ echo ==========================================
 echo    SUCCESS!
 echo ==========================================
 echo.
-echo Portable:  dist\LibraryOfYoreecho Installer: installer\LibraryOfYore_Setup.exe
+echo Portable:  dist\LibraryOfYore
+echo Installer: installer\LibraryOfYore_Setup.exe
 echo.
 
 :done
