@@ -12,7 +12,7 @@ Built with Python, PyQt6, and MongoDB.
 [![PyQt6](https://img.shields.io/badge/PyQt6-6.4+-green.svg)](https://riverbankcomputing.com/software/pyqt)
 [![MongoDB](https://img.shields.io/badge/MongoDB-Community-brightgreen.svg)](https://mongodb.com)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-1.0.1-orange.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/Version-1.1.0-orange.svg)](CHANGELOG.md)
 
 </div>
 
@@ -21,6 +21,8 @@ Built with Python, PyQt6, and MongoDB.
 ## Description
 
 **Library of Yore** is a desktop application for tracking your web novel reading progress. Paste a novel URL and it automatically fetches the title, author, cover, synopsis, and chapter count. Track where you left off, filter by status, and export your library to Excel.
+
+A companion **browser extension** lets your reading progress update automatically as you read — even when the app window is closed, since Library of Yore runs quietly in the system tray.
 
 Supports **Novelfire**, **Wuxiaworld**, **FreeWebNovel**, and **NovelUpdates**.
 
@@ -38,6 +40,8 @@ Supports **Novelfire**, **Wuxiaworld**, **FreeWebNovel**, and **NovelUpdates**.
 | **Cover Storage** | Images stored in MongoDB GridFS — your entire library is one database |
 | **Excel Export** | Export your entire library to `.xlsx` with one click |
 | **Dark Theme** | Gold and navy palette — easy on the eyes for long reading sessions |
+| **System Tray** | Closing the window hides the app to the tray — the API server keeps running in the background |
+| **Browser Extension** | Auto-updates your chapter progress as you read — works even with the window hidden |
 | **Single-File Portable** | Distributes as one standalone `.exe` — no installation required |
 
 ---
@@ -50,6 +54,51 @@ Supports **Novelfire**, **Wuxiaworld**, **FreeWebNovel**, and **NovelUpdates**.
 | [Wuxiaworld](https://www.wuxiaworld.com) | `https://www.wuxiaworld.com/novel/renegade-immortal` |
 | [FreeWebNovel](https://freewebnovel.com) | `https://freewebnovel.com/novel/lord-of-the-mysteries` |
 | [NovelUpdates](https://www.novelupdates.com) | `https://www.novelupdates.com/series/lord-of-the-mysteries/` |
+
+---
+
+## Browser Extension
+
+The **Library of Yore Browser Extension** detects which chapter you are reading and automatically updates your progress in the app — no manual entry needed.
+
+> **Download:** The extension is available in the [Releases](https://github.com/NurAbir/Library-of-Yore/releases) section of this repository. Look for `Library.of.Yore.Browser.Extension.zip` attached to the latest release.
+
+### How It Works
+
+1. Library of Yore runs a small local API server on `localhost:7337`
+2. The extension watches the current tab URL and detects chapter numbers
+3. When you advance to a new chapter it sends the update to the app
+4. The app writes it to MongoDB and refreshes the card — even if the main window is hidden
+
+### Background Tracking (System Tray)
+
+You do **not** need to keep the Library of Yore window open. When you click the ✕ close button, the app hides itself to the **Windows system tray** instead of quitting. The API server stays alive in the background, so the extension keeps working normally.
+
+| Tray Action | Result |
+|-------------|--------|
+| Single or double-click the tray icon | Reopens the main window |
+| Right-click → **Open Library** | Reopens the main window |
+| Right-click → **Quit** | Fully exits the app and stops the server |
+
+A notification balloon appears the first time you close the window to let you know it is still running.
+
+### Installing the Extension
+
+**Chrome / Edge / Brave:**
+
+1. Download and unzip `Library.of.Yore.Browser.Extension.zip` from the [Releases](https://github.com/NurAbir/Library-of-Yore/releases) page
+2. Go to `chrome://extensions/` (or `edge://extensions/`)
+3. Enable **Developer mode** (toggle, top-right)
+4. Click **Load unpacked** and select the unzipped folder
+5. The extension icon appears in your toolbar — click it to confirm it shows **Connected**
+
+**Firefox:**
+
+1. Go to `about:debugging#/runtime/this-firefox`
+2. Click **Load Temporary Add-on**
+3. Select the `manifest.json` file inside the unzipped folder
+
+> Firefox temporary add-ons are removed on browser restart. For permanent install, the extension must be submitted to AMO or side-loaded via a policy.
 
 ---
 
@@ -84,6 +133,10 @@ On first run, the app checks `localhost:27017` for MongoDB.
 
 - **Connected** → main window opens immediately
 - **Not found** → setup wizard guides you to download or start MongoDB
+
+### 4. Install the Browser Extension (Optional)
+
+Download `Library.of.Yore.Browser.Extension.zip` from the same [Releases](https://github.com/NurAbir/Library-of-Yore/releases) page and follow the [installation steps](#installing-the-extension) above.
 
 See the [User Manual](USER_MANUAL.md) for detailed instructions.
 
@@ -143,6 +196,7 @@ build.bat
 ```
 libraryofyore/
 ├── main.py                 # Entry point — also writes crash_log.txt on startup failure
+├── api_server.py           # Local HTTP server (localhost:7337) for the browser extension
 ├── config.py               # App configuration, paths, asset loader
 ├── requirements.txt        # Python dependencies
 ├── build.py                # PyInstaller build script (--folder / default onefile)
@@ -158,6 +212,15 @@ libraryofyore/
 │   ├── logo.png            # App logo
 │   └── logo.ico            # Windows icon
 │
+├── Library of Yore Browser Extension/   # Browser extension source (also in Releases as a zip)
+│   ├── manifest.json
+│   ├── background.js
+│   ├── content.js
+│   ├── popup.html
+│   ├── popup.css
+│   ├── popup.js
+│   └── icons/
+│
 ├── database/
 │   ├── connection.py       # MongoDB client singleton + connection test
 │   └── models.py           # Novel dataclass + NovelRepository (CRUD + GridFS)
@@ -172,7 +235,7 @@ libraryofyore/
 │
 ├── ui/
 │   ├── setup_wizard.py     # First-time MongoDB setup dialog
-│   ├── main_window.py      # Primary window (grid, sidebar, toolbar)
+│   ├── main_window.py      # Primary window (grid, sidebar, toolbar, system tray)
 │   ├── novel_card.py       # Individual novel card widget
 │   └── add_novel_dialog.py # Add/Edit novel with live scraping
 │
@@ -208,6 +271,8 @@ All data is stored **locally** in your MongoDB instance — nothing leaves your 
 | App won't start (no window) | Check `crash_log.txt` next to the `.exe` for the error |
 | App settings corrupted | Delete `%LOCALAPPDATA%\LibraryOfYore\config.json` to reset |
 | Chapters show wrong number | Update to v1.0.1+ — the 4-digit chapter bug is fixed |
+| Extension shows "Disconnected" | Make sure Library of Yore is running (check the system tray) |
+| Card not updating from extension | Confirm the novel's Source URL matches the site you are reading on |
 
 ---
 

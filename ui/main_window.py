@@ -5,13 +5,15 @@ from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QLineEdit, QPushButton, QComboBox, QListWidget, QListWidgetItem,
     QScrollArea, QGridLayout, QFrame, QMessageBox, QFileDialog,
-    QStatusBar, QMenuBar, QMenu, QCheckBox, QGroupBox, QSplitter
+    QStatusBar, QMenuBar, QMenu, QCheckBox, QGroupBox, QSplitter,
+    QSystemTrayIcon, QApplication
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtGui import QAction, QFont, QIcon
 
 from database.connection import test_connection, ensure_indexes
 from database.models import NovelRepository, Novel
+import api_server
 from ui.setup_wizard import SetupWizard
 from ui.add_novel_dialog import AddNovelDialog
 from ui.novel_card import NovelCard
@@ -79,6 +81,10 @@ class ExportWorker(QThread):
 class MainWindow(QMainWindow):
     """Primary application window."""
 
+    # Emitted from the API-server thread via api_server.set_progress_callback;
+    # Qt routes it safely to the main thread.
+    chapter_updated = pyqtSignal(str, int, int)  # novel_id, chapter, total
+
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Library of Yore")
@@ -88,10 +94,12 @@ class MainWindow(QMainWindow):
         self.novel_cards = {}  # novel_id -> NovelCard
         self.current_sort = "last_read"
         self.grid_view = True
+        self._force_quit = False  # True only when user picks Quit from tray
 
         self._check_db_connection()
         self._build_ui()
         self._apply_theme()
+        self._setup_tray()
         self._refresh_library()
 
     def _check_db_connection(self):
@@ -109,6 +117,13 @@ class MainWindow(QMainWindow):
 
         self.repo = NovelRepository()
         ensure_indexes()
+        # Start local API server for the browser extension
+        api_server.start()
+        # Wire the extension → UI bridge: signal is thread-safe across Qt threads
+        self.chapter_updated.connect(self._on_extension_chapter_update)
+        api_server.set_progress_callback(
+            lambda novel_id, chapter, total: self.chapter_updated.emit(novel_id, chapter, total or 0)
+        )
 
     def _build_ui(self):
         # Menu bar
@@ -250,7 +265,7 @@ class MainWindow(QMainWindow):
         # Status bar
         self.statusbar = QStatusBar()
         self.setStatusBar(self.statusbar)
-        self.statusbar.showMessage("Ready")
+        self.statusbar.showMessage(f"Ready  •  Browser extension API: localhost:{api_server.PORT}")
 
     def _apply_theme(self):
         """Apply dark theme stylesheet."""
@@ -409,6 +424,14 @@ class MainWindow(QMainWindow):
         if url:
             webbrowser.open(url)
 
+    def _on_extension_chapter_update(self, novel_id: str, chapter: int, total: int):
+        """Slot called (on the main thread) when the browser extension updates progress."""
+        if novel_id in self.novel_cards:
+            self.novel_cards[novel_id].update_progress(chapter, total or None)
+        self.statusbar.showMessage(
+            f"Extension updated chapter → {chapter}", 3000
+        )
+
     def _on_chapter_plus(self, novel_id: str):
         novel = self.repo.get_by_id(novel_id)
         if novel:
@@ -462,9 +485,62 @@ class MainWindow(QMainWindow):
             "<p>A desktop bookmark tracker for web novels.</p>"
             "<p>Supports: Webnovel.com, Novelfire.net</p>"
             "<p>Built with Python, PyQt6, and MongoDB.</p>"
+            f"<p><b>Browser Extension API:</b> localhost:{api_server.PORT}</p>"
         )
 
+    def _setup_tray(self):
+        """Create the system tray icon so the app keeps running when the window is closed."""
+        if not QSystemTrayIcon.isSystemTrayAvailable():
+            return
+
+        self.tray_icon = QSystemTrayIcon(QIcon(get_asset_path("logo.ico")), self)
+        self.tray_icon.setToolTip("Library of Yore — tracking in background")
+
+        tray_menu = QMenu()
+
+        open_action = QAction("Open Library", self)
+        open_action.triggered.connect(self._show_window)
+        tray_menu.addAction(open_action)
+
+        tray_menu.addSeparator()
+
+        quit_action = QAction("Quit", self)
+        quit_action.triggered.connect(self._quit_app)
+        tray_menu.addAction(quit_action)
+
+        self.tray_icon.setContextMenu(tray_menu)
+        # Single-click or double-click the tray icon → reopen window
+        self.tray_icon.activated.connect(self._on_tray_activated)
+        self.tray_icon.show()
+
+    def _show_window(self):
+        self.showNormal()
+        self.raise_()
+        self.activateWindow()
+
+    def _on_tray_activated(self, reason):
+        if reason in (QSystemTrayIcon.ActivationReason.Trigger,
+                      QSystemTrayIcon.ActivationReason.DoubleClick):
+            self._show_window()
+
+    def _quit_app(self):
+        self._force_quit = True
+        QApplication.quit()
+
     def closeEvent(self, event):
-        from database.connection import close_connection
-        close_connection()
-        event.accept()
+        if self._force_quit:
+            # Real quit — clean up and exit
+            from database.connection import close_connection
+            close_connection()
+            event.accept()
+        else:
+            # Hide to tray instead of closing
+            event.ignore()
+            self.hide()
+            if hasattr(self, "tray_icon"):
+                self.tray_icon.showMessage(
+                    "Library of Yore",
+                    "Still tracking in the background. Right-click the tray icon to quit.",
+                    QSystemTrayIcon.MessageIcon.Information,
+                    3000
+                )

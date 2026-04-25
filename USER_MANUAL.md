@@ -1,6 +1,6 @@
 # Library of Yore — User Manual
 
-**Version 1.0.1**
+**Version 1.2.0**
 
 A complete guide to installing, using, and troubleshooting Library of Yore — your personal desktop web novel tracker.
 
@@ -16,14 +16,16 @@ A complete guide to installing, using, and troubleshooting Library of Yore — y
 6. [The Main Library](#6-the-main-library)
 7. [Editing a Novel](#7-editing-a-novel)
 8. [Tracking Reading Progress](#8-tracking-reading-progress)
-9. [Search, Filter & Sort](#9-search-filter--sort)
-10. [Exporting Your Library](#10-exporting-your-library)
-11. [Settings & Configuration](#11-settings--configuration)
-12. [Data Backup & Migration](#12-data-backup--migration)
-13. [Building from Source](#13-building-from-source)
-14. [Troubleshooting](#14-troubleshooting)
-15. [Keyboard Shortcuts](#15-keyboard-shortcuts)
-16. [FAQ](#16-faq)
+9. [Browser Extension](#9-browser-extension)
+10. [System Tray & Background Mode](#10-system-tray--background-mode)
+11. [Search, Filter & Sort](#11-search-filter--sort)
+12. [Exporting Your Library](#12-exporting-your-library)
+13. [Settings & Configuration](#13-settings--configuration)
+14. [Data Backup & Migration](#14-data-backup--migration)
+15. [Building from Source](#15-building-from-source)
+16. [Troubleshooting](#16-troubleshooting)
+17. [Keyboard Shortcuts](#17-keyboard-shortcuts)
+18. [FAQ](#18-faq)
 
 ---
 
@@ -36,6 +38,7 @@ A complete guide to installing, using, and troubleshooting Library of Yore — y
 | **Storage** | 200 MB for the app + space for cover images |
 | **Internet** | Required for scraping metadata and downloading covers |
 | **Database** | MongoDB Community Server (free, separate install) |
+| **Browser** | Chrome, Edge, Brave, or Firefox (for the browser extension) |
 
 Python is **not** required to run the portable `.exe` or the installer build.
 
@@ -72,7 +75,7 @@ You will see one of two responses:
 
 ### If You Need a Custom Port
 
-By default MongoDB runs on port `27017`. If you need a different port, update the connection string in Settings after launch (see [Section 11](#11-settings--configuration)).
+By default MongoDB runs on port `27017`. If you need a different port, update the connection string in Settings after launch (see [Section 13](#13-settings--configuration)).
 
 ---
 
@@ -82,7 +85,7 @@ By default MongoDB runs on port `27017`. If you need a different port, update th
 
 The portable version is a **single `.exe` file** — no installer, no admin rights needed.
 
-1. Download `LibraryOfYore.exe` from the Releases page
+1. Download `LibraryOfYore.exe` from the [Releases](https://github.com/NurAbir/Library-of-Yore/releases) page
 2. Place it anywhere (Desktop, a USB drive, a folder of your choice)
 3. Double-click to run
 
@@ -92,7 +95,7 @@ If the app crashes silently on startup, look for a file called `crash_log.txt` i
 
 ### Option B — Windows Installer
 
-1. Download `LibraryOfYore_Setup.exe` from the Releases page
+1. Download `LibraryOfYore_Setup.exe` from the [Releases](https://github.com/NurAbir/Library-of-Yore/releases) page
 2. Double-click and follow the wizard
 3. Launch from the Start Menu or the optional Desktop shortcut
 
@@ -258,6 +261,8 @@ To delete a novel: right-click its card → **Delete**. This also removes its co
 
 **Precise:** Open the novel → change the **Current Chapter** number → Save.
 
+**Automatic (browser extension):** If you have the browser extension installed, your chapter updates as you read in the browser — see [Section 9](#9-browser-extension).
+
 ### Progress Indicators
 
 | Indicator | Meaning |
@@ -276,7 +281,100 @@ Sort by **Last Read** to jump back to whatever you were reading most recently.
 
 ---
 
-## 9. Search, Filter & Sort
+## 9. Browser Extension
+
+The **Library of Yore Browser Extension** tracks the chapter you are reading in your browser and automatically updates your progress in the app — no clicking +1, no manual entry.
+
+> **Download:** The extension is available in the [Releases](https://github.com/NurAbir/Library-of-Yore/releases) section on GitHub. Download `Library.of.Yore.Browser.Extension.zip` from the latest release.
+
+### How It Works
+
+The extension communicates with Library of Yore through a small local API server the app runs on `localhost:7337`. When you navigate to a new chapter, the extension:
+
+1. Reads the current page URL
+2. Matches it against the novels stored in your library by domain and URL slug
+3. Extracts the chapter number from the URL or page content
+4. Sends a progress update to the app if the chapter is newer than what is stored
+5. The app updates the card immediately — chapter label, progress bar, and percentage all refresh in real time
+
+The card updates **live** even if the main window is hidden in the system tray.
+
+### Installing the Extension
+
+**Chrome, Edge, or Brave:**
+
+1. Download and unzip `Library.of.Yore.Browser.Extension.zip` from the [Releases](https://github.com/NurAbir/Library-of-Yore/releases) page
+2. Open your browser and go to:
+   - Chrome: `chrome://extensions/`
+   - Edge: `edge://extensions/`
+   - Brave: `brave://extensions/`
+3. Turn on **Developer mode** using the toggle in the top-right corner
+4. Click **Load unpacked**
+5. Select the unzipped `Library of Yore Browser Extension` folder
+6. The Library of Yore icon appears in your browser toolbar
+
+**Firefox:**
+
+1. Go to `about:debugging#/runtime/this-firefox`
+2. Click **Load Temporary Add-on**
+3. Browse into the unzipped folder and select `manifest.json`
+
+> **Firefox note:** Temporary add-ons are removed when Firefox restarts. For a permanent install the extension would need to be submitted to Mozilla Add-ons (AMO).
+
+### Checking the Connection
+
+Click the extension icon in your browser toolbar. The popup shows:
+
+| Status | Meaning |
+|--------|---------|
+| 🟢 **Connected** | Library of Yore is running and the API server is reachable |
+| 🔴 **Disconnected** | The app is not running — launch Library of Yore first |
+
+### Matching Novels
+
+For the extension to update a novel, that novel must be saved in your library with a **Source URL** that matches the site you are reading on. The extension matches by domain and URL path — for example, if you saved `https://novelfire.net/book/shadow-slave`, reading any chapter URL under that path will be recognised as the same novel.
+
+If a novel is not being detected, open the Edit dialog and confirm the Source URL is set to the novel's main page on the supported site.
+
+---
+
+## 10. System Tray & Background Mode
+
+Library of Yore is designed to run quietly in the background so the browser extension always has somewhere to send updates — even when you are not actively using the app.
+
+### Hiding to the Tray
+
+When you click the **✕ close button** on the main window, the app does **not** quit. Instead it hides to the Windows system tray (bottom-right corner of the taskbar, near the clock). The API server keeps running, so the browser extension continues working normally.
+
+The first time you close the window, a notification balloon appears:
+
+> *"Still tracking in the background. Right-click the tray icon to quit."*
+
+### Tray Icon Actions
+
+| Action | Result |
+|--------|--------|
+| **Single-click** the tray icon | Reopens the main window |
+| **Double-click** the tray icon | Reopens the main window |
+| **Right-click → Open Library** | Reopens the main window |
+| **Right-click → Quit** | Fully exits the app, stops the API server, and closes the MongoDB connection |
+
+### Fully Quitting
+
+To stop Library of Yore completely, right-click its icon in the system tray and choose **Quit**. Simply closing the window is not enough — that only hides it.
+
+### Starting with Windows (Optional)
+
+If you want Library of Yore to launch automatically on login so the extension is always ready:
+
+1. Press `Win + R`, type `shell:startup`, press Enter
+2. Create a shortcut to `LibraryOfYore.exe` in that folder
+
+The app will start minimised to the tray on each login.
+
+---
+
+## 11. Search, Filter & Sort
 
 ### Search
 
@@ -306,7 +404,7 @@ Only checked statuses are displayed.
 
 ---
 
-## 10. Exporting Your Library
+## 12. Exporting Your Library
 
 Click **Export Excel** in the toolbar. Choose a save location. The file opens in Excel or any spreadsheet app.
 
@@ -337,7 +435,7 @@ Click **Export Excel** in the toolbar. Choose a save location. The file opens in
 
 ---
 
-## 11. Settings & Configuration
+## 13. Settings & Configuration
 
 Settings are saved to:
 
@@ -364,7 +462,7 @@ Delete `config.json` and restart the app. It recreates the file with all default
 
 ---
 
-## 12. Data Backup & Migration
+## 14. Data Backup & Migration
 
 ### Full Backup (MongoDB Dump)
 
@@ -394,7 +492,7 @@ Use **Export Excel** from the toolbar. This gives you a readable spreadsheet but
 
 ---
 
-## 13. Building from Source
+## 15. Building from Source
 
 This section is for developers who want to modify and rebuild the app.
 
@@ -433,7 +531,7 @@ python main.py
 
 ---
 
-## 14. Troubleshooting
+## 16. Troubleshooting
 
 ### App Won't Open (Silent Crash)
 
@@ -465,6 +563,22 @@ If the service doesn't exist:
 If using a non-default port:
 - Edit `%LOCALAPPDATA%\LibraryOfYore\config.json`
 - Change `mongo_uri` to your actual URI, e.g. `mongodb://localhost:27018`
+
+### Extension Shows "Disconnected"
+
+**Symptom:** The extension popup shows a red Disconnected status.
+
+- Library of Yore is not running. Launch it from your Start Menu, Desktop shortcut, or the startup folder.
+- Check the Windows system tray — the app may already be running hidden there. Click the tray icon to confirm.
+- If the app is running and the extension still shows disconnected, check Windows Firewall isn't blocking `localhost:7337`.
+
+### Card Not Updating from the Extension
+
+**Symptom:** You read a new chapter in the browser but the card in the app does not update.
+
+- Open the novel's Edit dialog and confirm the **Source URL** is set to the novel's main page URL on the reading site (not a chapter URL)
+- Verify the URL domain matches — e.g. the novel must be saved with a `novelfire.net` source URL if you are reading on Novelfire
+- Check the extension popup — it should show the novel title it detected. If it shows "No match found", the URL could not be matched to any saved novel
 
 ### Scraping Fails
 
@@ -500,7 +614,7 @@ This is normal for the single-file portable `.exe` on first launch — PyInstall
 
 ---
 
-## 15. Keyboard Shortcuts
+## 17. Keyboard Shortcuts
 
 | Shortcut | Action |
 |----------|--------|
@@ -513,7 +627,7 @@ This is normal for the single-file portable `.exe` on first launch — PyInstall
 
 ---
 
-## 16. FAQ
+## 18. FAQ
 
 **Q: Is my data stored online or shared with anyone?**
 No. Everything is stored locally in MongoDB on your own machine. There are no accounts, no cloud sync, and no telemetry.
@@ -528,16 +642,22 @@ MongoDB handles tens of millions of documents with ease. Your practical limit is
 No — this is expected on the first launch of the single-file build. PyInstaller unpacks itself to `%TEMP%`. It's faster from the second launch onward. Use `python build.py --folder` for a faster-starting folder build if you prefer.
 
 **Q: Can I add support for other novel sites?**
-Yes. See [Section 13 — Adding a New Scraper](#adding-a-new-scraper).
+Yes. See [Section 15 — Adding a New Scraper](#adding-a-new-scraper).
 
 **Q: Why was Webnovel.com removed?**
 Webnovel uses Cloudflare and JavaScript-heavy anti-bot protection that makes reliable scraping impossible without constant maintenance.
 
 **Q: How do I back up my library?**
-Use `mongodump` for a complete backup (includes covers), or **Export Excel** from the toolbar for a human-readable reference copy. See [Section 12](#12-data-backup--migration).
+Use `mongodump` for a complete backup (includes covers), or **Export Excel** from the toolbar for a human-readable reference copy. See [Section 14](#14-data-backup--migration).
 
 **Q: Can I edit the config file directly?**
 Yes. `%LOCALAPPDATA%\LibraryOfYore\config.json` is plain JSON. Edit with any text editor. Delete it to reset all settings to defaults.
+
+**Q: Do I need to keep the app window open for the browser extension to work?**
+No. Close the window and Library of Yore hides to the system tray. The API server stays running and the extension keeps tracking your chapters. Only use **Quit** from the tray menu when you want to fully stop the app.
+
+**Q: Where do I download the browser extension?**
+From the [Releases](https://github.com/NurAbir/Library-of-Yore/releases) page on GitHub. Download `Library.of.Yore.Browser.Extension.zip` from the latest release and follow the instructions in [Section 9](#9-browser-extension).
 
 ---
 
@@ -545,6 +665,6 @@ Yes. `%LOCALAPPDATA%\LibraryOfYore\config.json` is plain JSON. Edit with any tex
 
 **Happy Reading!**
 
-*Library of Yore v1.0.1*
+*Library of Yore v1.2.0*
 
 </div>
