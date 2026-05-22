@@ -2,7 +2,7 @@
 ; Requires Inno Setup 6.x: https://jrsoftware.org/isdl.php
 
 #define MyAppName "Library of Yore"
-#define MyAppVersion "1.0.0"
+#define MyAppVersion "1.3.0"
 #define MyAppPublisher "LibraryOfYore"
 #define MyAppExeName "LibraryOfYore.exe"
 
