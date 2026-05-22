@@ -12,7 +12,7 @@ Built with Python, PyQt6, and MongoDB.
 [![PyQt6](https://img.shields.io/badge/PyQt6-6.4+-green.svg)](https://riverbankcomputing.com/software/pyqt)
 [![MongoDB](https://img.shields.io/badge/MongoDB-Community-brightgreen.svg)](https://mongodb.com)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-1.1.0-orange.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/Version-1.3.0-orange.svg)](CHANGELOG.md)
 
 </div>
 
@@ -34,6 +34,8 @@ Supports **Novelfire**, **Wuxiaworld**, **FreeWebNovel**, and **NovelUpdates**.
 |---------|-------------|
 | **Visual Library** | Grid view with cover images, progress bars, and status badges |
 | **Auto-Scrape Metadata** | Paste a URL and fetch title, author, cover, synopsis, and chapter count automatically |
+| **Auto-Refresh on Startup** | Novelfire novels are silently re-scraped in the background when the app opens — latest chapter count, status, and synopsis update automatically |
+| **Updated Badge** | Cards that received new data during auto-refresh show a gold ✦ Updated badge |
 | **Chapter Tracking** | Track current chapter, total chapters, and completion percentage |
 | **Status Management** | Ongoing, Completed, Hiatus, Dropped, Planned |
 | **Search & Filter** | Filter by status, search by title/author/notes, sort by last read / rating / progress |
@@ -131,7 +133,7 @@ Download `LibraryOfYore_Setup.exe` and run it to install to Program Files with a
 
 On first run, the app checks `localhost:27017` for MongoDB.
 
-- **Connected** → main window opens immediately
+- **Connected** → main window opens immediately. Novelfire novels begin auto-refreshing in the background.
 - **Not found** → setup wizard guides you to download or start MongoDB
 
 ### 4. Install the Browser Extension (Optional)
@@ -273,6 +275,7 @@ All data is stored **locally** in your MongoDB instance — nothing leaves your 
 | Chapters show wrong number | Update to v1.0.1+ — the 4-digit chapter bug is fixed |
 | Extension shows "Disconnected" | Make sure Library of Yore is running (check the system tray) |
 | Card not updating from extension | Confirm the novel's Source URL matches the site you are reading on |
+| Synopsis shows "Summary..." prefix | Update to v1.3.0 — the leading label is now stripped automatically |
 
 ---
 

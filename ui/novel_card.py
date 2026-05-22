@@ -49,7 +49,20 @@ class NovelCard(QFrame):
             )
         layout.addWidget(self.cover_label, alignment=Qt.AlignmentFlag.AlignCenter)
 
-        # Title
+        # "Updated" badge — overlaid on the top-right of the cover, hidden until mark_updated()
+        self.update_badge = QLabel("✦ Updated", self)
+        self.update_badge.setStyleSheet("""
+            background-color: #d4af37;
+            color: #1a1a1a;
+            border-radius: 3px;
+            padding: 2px 6px;
+            font-size: 8px;
+            font-weight: bold;
+        """)
+        self.update_badge.adjustSize()
+        self.update_badge.move(self.width() - self.update_badge.width() - 10, 10)
+        self.update_badge.hide()
+        self.update_badge.raise_()
         self.title_label = QLabel(self.novel.title)
         self.title_label.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
         self.title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -173,3 +186,23 @@ class NovelCard(QFrame):
         self.chapter_label.setText("Ch " + str(current))
         self.progress.setValue(int(self.novel.percent_complete))
         self.progress.setFormat(str(int(self.novel.percent_complete)) + "%")
+
+    def update_status(self, status: str):
+        """Update the status badge without a full card rebuild."""
+        self.novel.status = status
+        self.status_label.setText(status.upper())
+        self.status_label.setStyleSheet(self._status_style(status))
+
+    def update_latest_chapter(self, total: int):
+        """Update total/latest chapter count and refresh progress bar."""
+        if total and total != self.novel.total_chapters:
+            self.novel.total_chapters = total
+            self.progress.setValue(int(self.novel.percent_complete))
+            self.progress.setFormat(str(int(self.novel.percent_complete)) + "%")
+
+    def mark_updated(self):
+        """Show a gold badge on the card to signal that new data was auto-fetched."""
+        self.update_badge.adjustSize()
+        self.update_badge.move(self.width() - self.update_badge.width() - 10, 10)
+        self.update_badge.show()
+        self.update_badge.raise_()

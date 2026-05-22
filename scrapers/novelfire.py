@@ -120,14 +120,44 @@ class NovelfireScraper(BaseScraper):
                 if result.synopsis:
                     break
 
+        # Strip "Show More" / "Show Less" / "Read More" UI button text scraped along with synopsis,
+        # and leading section labels like "Summary" or "Description" that bleed into the text.
+        if result.synopsis:
+            result.synopsis = re.sub(
+                r'^(summary|description|synopsis)\s*[:\-]?\s*',
+                '', result.synopsis, flags=re.IGNORECASE
+            ).strip()
+            result.synopsis = re.sub(
+                r'\s*(show\s+more|show\s+less|read\s+more|\.{3}more)\s*$',
+                '', result.synopsis, flags=re.IGNORECASE
+            ).strip()
+
         # Chapter count & status from text
         text_blob = soup.get_text(separator=" ", strip=True)
 
         # Use base class method — handles any digit length (fixes 4+ digit chapters e.g. 2111)
         result.total_chapters = self._extract_chapter_number(text_blob)
 
-        # Status
-        result.status = self._normalize_status(text_blob)
+        # Status — use targeted selectors first so synopsis words ("complete", "finished") don't
+        # false-match when the full page blob is used.
+        status_text = None
+        for sel in [".status", ".novel-status", ".label-status", ".info-status", "[class*='status']"]:
+            el = soup.select_one(sel)
+            if el:
+                txt = el.get_text(strip=True)
+                if txt and len(txt) < 40:   # Status labels are always short
+                    status_text = txt
+                    break
+        if not status_text:
+            # Narrow to the info / header section only — avoids synopsis contamination
+            info_el = (
+                soup.select_one(".novel-info")
+                or soup.select_one(".info-section")
+                or soup.select_one(".header-info")
+                or soup.select_one(".novel-header")
+            )
+            status_text = info_el.get_text(separator=" ", strip=True) if info_el else text_blob[:800]
+        result.status = self._normalize_status(status_text)
 
         # Genres
         genre_selectors = [

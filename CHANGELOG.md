@@ -2,6 +2,24 @@
 
 All notable changes to Library of Yore.
 
+## [1.3.0] - 2026-05-22
+
+### Added
+- **Auto-refresh on startup** — all Novelfire novels are silently re-scraped in a background thread when the app opens; latest chapter count, status, and synopsis are written to the database and reflected on cards immediately, with no UI blocking
+- **✦ Updated badge** — cards that received new data during auto-refresh display a gold badge in the top-right corner of their cover image for the duration of the session
+- **`NovelRefreshWorker` (QThread)** — dedicated background worker that drives the startup refresh; emits `novel_updated(novel_id, total_chapters, status, synopsis)` per novel and `finished(count)` when done; status bar shows progress and completion message
+- **`update_status()` on `NovelCard`** — updates the status badge label and colour in place without rebuilding the card
+- **`update_latest_chapter()` on `NovelCard`** — updates total chapters and recalculates the progress bar percentage live
+- **`mark_updated()` on `NovelCard`** — shows the gold ✦ Updated badge overlay
+
+### Fixed
+- **Synopsis shows "Summary..." prefix** — `novelfire.py` now strips any leading `Summary`, `Description`, or `Synopsis` label (with or without a colon) from the scraped synopsis text
+- **Synopsis includes "Show More" button text** — trailing `Show More`, `Show Less`, `Read More`, and `...more` strings are stripped from the synopsis after extraction
+- **Novel status detected incorrectly** — status is now extracted using targeted CSS selectors (`.status`, `.novel-status`, `.label-status`, etc.) rather than scanning the entire page text, preventing synopsis words like "completed his journey" from false-matching as a Completed status
+- **"Title is required" fires before the form is filled** — `keyPressEvent` is now overridden on the Add Novel dialog to fully block Enter/Return from triggering any button; Enter in the Source URL field still triggers Fetch Metadata via `returnPressed`
+- **`QMessageBox` confirmation after scrape leaks Enter key to Save** — the blocking information pop-up after a successful scrape has been replaced with an inline green status label below the URL field
+- **`setDefault(True)` / `autoDefault` on dialog buttons** — `setDefault` removed and `setAutoDefault(False)` applied to all seven buttons in the Add Novel dialog as a secondary safeguard
+
 ## [1.0.1] - 2026-04-25
 
 ### Fixed

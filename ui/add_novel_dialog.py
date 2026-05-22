@@ -56,6 +56,15 @@ class AddNovelDialog(QDialog):
         if self.is_edit:
             self._load_novel_data()
 
+    def keyPressEvent(self, event):
+        """Block Enter/Return from triggering any button in the dialog.
+        The URL field's returnPressed signal handles Enter there explicitly."""
+        from PyQt6.QtCore import Qt as _Qt
+        if event.key() in (_Qt.Key.Key_Return, _Qt.Key.Key_Enter):
+            event.ignore()
+            return
+        super().keyPressEvent(event)
+
     def _build_ui(self):
         main_layout = QVBoxLayout(self)
         main_layout.setSpacing(16)
@@ -83,9 +92,11 @@ class AddNovelDialog(QDialog):
         self.url_input.setPlaceholderText("https://www.webnovel.com/book/...  or  https://novelfire.net/novel/...")
         self.url_input.setMinimumHeight(36)
         self.url_input.textChanged.connect(self._on_url_changed)
+        self.url_input.returnPressed.connect(self._start_scrape)   # Enter in URL field → fetch
         url_layout.addWidget(self.url_input, stretch=3)
 
         self.fetch_btn = QPushButton("Fetch Metadata")
+        self.fetch_btn.setAutoDefault(False)
         self.fetch_btn.setToolTip("Scrape title, cover, chapters from the URL")
         self.fetch_btn.setMinimumHeight(36)
         self.fetch_btn.setEnabled(False)
@@ -93,6 +104,7 @@ class AddNovelDialog(QDialog):
         url_layout.addWidget(self.fetch_btn, stretch=1)
 
         self.open_url_btn = QPushButton("Open")
+        self.open_url_btn.setAutoDefault(False)
         self.open_url_btn.setMinimumHeight(36)
         self.open_url_btn.setEnabled(False)
         self.open_url_btn.clicked.connect(self._open_source_url)
@@ -101,7 +113,11 @@ class AddNovelDialog(QDialog):
         url_group.setLayout(url_layout)
         layout.addWidget(url_group)
 
-        # === COVER + DETAILS SPLIT ===
+        # Inline fetch-status label (replaces the pop-up confirmation)
+        self.fetch_status_label = QLabel("")
+        self.fetch_status_label.setStyleSheet("color: #4caf50; font-size: 11px; padding: 0 4px;")
+        self.fetch_status_label.setVisible(False)
+        layout.addWidget(self.fetch_status_label)
         splitter = QSplitter(Qt.Orientation.Horizontal)
 
         # Left: Cover
@@ -123,17 +139,20 @@ class AddNovelDialog(QDialog):
         cover_inner.addWidget(self.cover_label, alignment=Qt.AlignmentFlag.AlignCenter)
 
         self.load_cover_btn = QPushButton("Load from File")
+        self.load_cover_btn.setAutoDefault(False)
         self.load_cover_btn.setMinimumHeight(32)
         self.load_cover_btn.clicked.connect(self._load_cover_from_file)
         cover_inner.addWidget(self.load_cover_btn)
 
         self.download_cover_btn = QPushButton("Download from URL")
+        self.download_cover_btn.setAutoDefault(False)
         self.download_cover_btn.setMinimumHeight(32)
         self.download_cover_btn.clicked.connect(self._download_cover_from_url)
         self.download_cover_btn.setEnabled(False)
         cover_inner.addWidget(self.download_cover_btn)
 
         self.clear_cover_btn = QPushButton("Clear Cover")
+        self.clear_cover_btn.setAutoDefault(False)
         self.clear_cover_btn.setMinimumHeight(32)
         self.clear_cover_btn.clicked.connect(self._clear_cover)
         cover_inner.addWidget(self.clear_cover_btn)
@@ -253,7 +272,7 @@ class AddNovelDialog(QDialog):
         btn_layout.addStretch()
 
         self.save_btn = QPushButton("Save Novel")
-        self.save_btn.setDefault(True)
+        self.save_btn.setAutoDefault(False)
         self.save_btn.setMinimumHeight(40)
         self.save_btn.setMinimumWidth(140)
         self.save_btn.setStyleSheet("""
@@ -273,6 +292,7 @@ class AddNovelDialog(QDialog):
         btn_layout.addWidget(self.save_btn)
 
         self.cancel_btn = QPushButton("Cancel")
+        self.cancel_btn.setAutoDefault(False)
         self.cancel_btn.setMinimumHeight(40)
         self.cancel_btn.setMinimumWidth(100)
         self.cancel_btn.clicked.connect(self.reject)
@@ -397,8 +417,17 @@ class AddNovelDialog(QDialog):
             self.download_cover_btn.setEnabled(True)
             self._download_cover_from_url()
 
-        msg = "Title: " + result.title + chr(10) + "Author: " + result.author + chr(10) + "Chapters: " + str(result.total_chapters or "N/A")
-        QMessageBox.information(self, "Metadata Fetched", msg)
+        # Show a quiet inline status instead of a blocking pop-up
+        parts = []
+        if result.title:
+            parts.append(result.title)
+        if result.author:
+            parts.append(result.author)
+        if result.total_chapters:
+            parts.append(str(result.total_chapters) + " ch")
+        status_text = "✓  " + "  •  ".join(parts) if parts else "✓  Metadata fetched"
+        self.fetch_status_label.setText(status_text)
+        self.fetch_status_label.setVisible(True)
 
     def _on_scrape_error(self, msg: str):
         self.fetch_btn.setEnabled(True)

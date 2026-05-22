@@ -78,6 +78,39 @@ class ExportWorker(QThread):
             self.error.emit(str(e))
 
 
+class NovelRefreshWorker(QThread):
+    """Background worker that re-scrapes Novelfire novels on startup to get the
+    latest chapter count and status without blocking the UI."""
+
+    novel_updated = pyqtSignal(str, int, str, str)  # novel_id, total_chapters, status, synopsis
+    finished = pyqtSignal(int)                       # number of novels successfully refreshed
+
+    def __init__(self, novels):
+        super().__init__()
+        self.novels = novels  # list of Novel objects with a novelfire source_url
+
+    def run(self):
+        from scrapers import get_scraper_for_url
+        updated = 0
+        for novel in self.novels:
+            if not novel.source_url:
+                continue
+            scraper = get_scraper_for_url(novel.source_url)
+            if not scraper:
+                continue
+            try:
+                result = scraper.scrape(novel.source_url)
+                if result.success:
+                    total    = result.total_chapters if result.total_chapters else (novel.total_chapters or 0)
+                    status   = result.status   if result.status   else novel.status
+                    synopsis = result.synopsis if result.synopsis else novel.synopsis
+                    self.novel_updated.emit(novel._id, total, status, synopsis)
+                    updated += 1
+            except Exception:
+                pass  # Non-fatal — skip silently and move to next novel
+        self.finished.emit(updated)
+
+
 class MainWindow(QMainWindow):
     """Primary application window."""
 
@@ -101,6 +134,7 @@ class MainWindow(QMainWindow):
         self._apply_theme()
         self._setup_tray()
         self._refresh_library()
+        self._start_novelfire_refresh()   # auto-fetch latest chapters/status on open
 
     def _check_db_connection(self):
         """Verify MongoDB on startup; show wizard if needed."""
@@ -444,6 +478,59 @@ class MainWindow(QMainWindow):
                     novel.current_chapter, novel.total_chapters
                 )
             self.statusbar.showMessage(f"Updated '{novel.title}' to chapter {novel.current_chapter}", 3000)
+
+    def _start_novelfire_refresh(self):
+        """On startup, silently re-scrape all Novelfire novels to pull in the
+        latest chapter count and status, then update the DB and each card."""
+        if not self.repo:
+            return
+        all_novels = self.repo.get_all()
+        novelfire_novels = [
+            n for n in all_novels
+            if n.source_url and "novelfire" in n.source_url.lower()
+        ]
+        if not novelfire_novels:
+            return
+
+        self.statusbar.showMessage(
+            f"Auto-refreshing {len(novelfire_novels)} Novelfire novel(s) in background…"
+        )
+        self.refresh_worker = NovelRefreshWorker(novelfire_novels)
+        self.refresh_worker.novel_updated.connect(self._on_novel_refreshed)
+        self.refresh_worker.finished.connect(self._on_refresh_finished)
+        self.refresh_worker.start()
+
+    def _on_novel_refreshed(self, novel_id: str, total_chapters: int, status: str, synopsis: str):
+        """Called (on main thread) for each novel the refresh worker finishes."""
+        novel = self.repo.get_by_id(novel_id)
+        if not novel:
+            return
+
+        changed = False
+        if total_chapters and total_chapters != novel.total_chapters:
+            novel.total_chapters = total_chapters
+            changed = True
+        if status and status != novel.status:
+            novel.status = status
+            changed = True
+        if synopsis and synopsis != novel.synopsis:
+            novel.synopsis = synopsis
+            changed = True
+
+        if changed:
+            self.repo.update(novel)
+            card = self.novel_cards.get(novel_id)
+            if card:
+                card.update_latest_chapter(novel.total_chapters or 0)
+                card.update_status(novel.status)
+                card.mark_updated()
+
+    def _on_refresh_finished(self, count: int):
+        msg = (
+            f"Auto-refresh complete — {count} Novelfire novel(s) updated."
+            if count else "Auto-refresh complete — no changes found."
+        )
+        self.statusbar.showMessage(msg, 6000)
 
     def _add_novel(self):
         dialog = AddNovelDialog(self.repo, parent=self)

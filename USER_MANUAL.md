@@ -1,6 +1,6 @@
 # Library of Yore — User Manual
 
-**Version 1.2.0**
+**Version 1.3.0**
 
 A complete guide to installing, using, and troubleshooting Library of Yore — your personal desktop web novel tracker.
 
@@ -16,16 +16,17 @@ A complete guide to installing, using, and troubleshooting Library of Yore — y
 6. [The Main Library](#6-the-main-library)
 7. [Editing a Novel](#7-editing-a-novel)
 8. [Tracking Reading Progress](#8-tracking-reading-progress)
-9. [Browser Extension](#9-browser-extension)
-10. [System Tray & Background Mode](#10-system-tray--background-mode)
-11. [Search, Filter & Sort](#11-search-filter--sort)
-12. [Exporting Your Library](#12-exporting-your-library)
-13. [Settings & Configuration](#13-settings--configuration)
-14. [Data Backup & Migration](#14-data-backup--migration)
-15. [Building from Source](#15-building-from-source)
-16. [Troubleshooting](#16-troubleshooting)
-17. [Keyboard Shortcuts](#17-keyboard-shortcuts)
-18. [FAQ](#18-faq)
+9. [Auto-Refresh on Startup](#9-auto-refresh-on-startup)
+10. [Browser Extension](#10-browser-extension)
+11. [System Tray & Background Mode](#11-system-tray--background-mode)
+12. [Search, Filter & Sort](#12-search-filter--sort)
+13. [Exporting Your Library](#13-exporting-your-library)
+14. [Settings & Configuration](#14-settings--configuration)
+15. [Data Backup & Migration](#15-data-backup--migration)
+16. [Building from Source](#16-building-from-source)
+17. [Troubleshooting](#17-troubleshooting)
+18. [Keyboard Shortcuts](#18-keyboard-shortcuts)
+19. [FAQ](#19-faq)
 
 ---
 
@@ -65,8 +66,6 @@ Open Command Prompt as Administrator and run:
 net start MongoDB
 ```
 
-You will see one of two responses:
-
 | Response | Meaning |
 |----------|---------|
 | `The MongoDB Server service is starting` | Starting now — wait a moment |
@@ -75,7 +74,7 @@ You will see one of two responses:
 
 ### If You Need a Custom Port
 
-By default MongoDB runs on port `27017`. If you need a different port, update the connection string in Settings after launch (see [Section 13](#13-settings--configuration)).
+By default MongoDB runs on port `27017`. If you need a different port, update the connection string in Settings after launch (see [Section 14](#14-settings--configuration)).
 
 ---
 
@@ -107,7 +106,7 @@ On the very first launch, Library of Yore checks for MongoDB at `localhost:27017
 
 ### If MongoDB is Found
 
-The main window opens immediately. Skip ahead to [Section 5](#5-adding-a-novel).
+The main window opens immediately and Novelfire novels begin auto-refreshing in the background (see [Section 9](#9-auto-refresh-on-startup)). Skip ahead to [Section 5](#5-adding-a-novel).
 
 ### If MongoDB is Not Found
 
@@ -134,19 +133,20 @@ Click **Add Novel** in the toolbar to open the Add Novel dialog.
 This is the fastest way to add a novel with full metadata.
 
 1. Paste the novel's page URL into the **Source URL** field
-2. Click **Fetch Metadata**
-3. Wait a few seconds (the app downloads the page and extracts data)
+2. Press **Enter** or click **Fetch Metadata**
+3. Wait a few seconds while the app downloads and extracts data
 4. The following fields fill in automatically:
    - Title
    - Author
    - Cover image
    - Total chapters (supports any number, including 1000+ chapter series)
-   - Synopsis
+   - Synopsis (any leading "Summary" or "Description" label is stripped automatically)
    - Genres
    - Status (Ongoing / Completed / Hiatus)
-5. Enter your **Current Chapter** — where you left off
-6. Adjust any fields if needed
-7. Click **Save Novel**
+5. A green confirmation line appears below the URL field — no pop-up dialog
+6. Enter your **Current Chapter** — where you left off
+7. Adjust any fields if needed
+8. Click **Save Novel**
 
 **Supported URLs:**
 
@@ -185,6 +185,10 @@ Use this when a site isn't supported or scraping fails.
 
 All covers are stored inside MongoDB (GridFS) — they travel with your database backup.
 
+### Keyboard Behaviour in the Add Novel Dialog
+
+Pressing **Enter** anywhere in the dialog does **not** trigger Save. This is intentional — it prevents accidentally saving an incomplete form. The only place Enter has an action is the **Source URL field**, where it triggers Fetch Metadata (same as clicking the button). To save, always click **Save Novel** directly.
+
 ---
 
 ## 6. The Main Library
@@ -213,11 +217,12 @@ The main window has three sections.
 Each novel card shows:
 
 - **Cover image** (or a "No Cover" placeholder)
+- **✦ Updated badge** — a small gold badge in the top-right corner of the cover, visible on cards that received new data during the current session's auto-refresh
 - **Title**
-- **Status badge** — color coded:
+- **Status badge** — colour coded:
 
-| Color | Status |
-|-------|--------|
+| Colour | Status |
+|--------|--------|
 | Blue | Ongoing |
 | Gold | Completed |
 | Orange | Hiatus |
@@ -261,7 +266,7 @@ To delete a novel: right-click its card → **Delete**. This also removes its co
 
 **Precise:** Open the novel → change the **Current Chapter** number → Save.
 
-**Automatic (browser extension):** If you have the browser extension installed, your chapter updates as you read in the browser — see [Section 9](#9-browser-extension).
+**Automatic (browser extension):** If you have the browser extension installed, your chapter updates as you read in the browser — see [Section 10](#10-browser-extension).
 
 ### Progress Indicators
 
@@ -281,7 +286,47 @@ Sort by **Last Read** to jump back to whatever you were reading most recently.
 
 ---
 
-## 9. Browser Extension
+## 9. Auto-Refresh on Startup
+
+Every time Library of Yore opens, it silently re-scrapes all **Novelfire** novels in the background to check for new chapters, status changes, or updated synopsis text. No action is required — it happens automatically.
+
+### What Gets Updated
+
+| Field | Updated? |
+|-------|---------|
+| Total chapters | ✅ Yes — reflects the latest published chapter count |
+| Status | ✅ Yes — picks up Ongoing → Completed transitions automatically |
+| Synopsis | ✅ Yes — pulls the current synopsis text from the novel page |
+| Cover image | ❌ No — covers are not re-downloaded on auto-refresh |
+| Your current chapter | ❌ No — your reading progress is never overwritten |
+
+### The ✦ Updated Badge
+
+Any card that received a change during auto-refresh shows a small gold **✦ Updated** badge in the top-right corner of its cover image. The badge stays visible for the rest of the session and disappears the next time the library is fully reloaded.
+
+### Status Bar
+
+While auto-refresh is running, the status bar at the bottom of the window shows:
+
+> *Auto-refreshing 3 Novelfire novel(s) in background…*
+
+When complete, it changes to:
+
+> *Auto-refresh complete — 2 Novelfire novel(s) updated.*
+
+or
+
+> *Auto-refresh complete — no changes found.*
+
+### Notes
+
+- Auto-refresh runs entirely in the background — the UI stays fully responsive
+- Only Novelfire novels are refreshed in v1.3.0. Support for other sources is planned in a future release
+- If a scrape fails for an individual novel (network error, site unavailable), it is silently skipped and the rest continue
+
+---
+
+## 10. Browser Extension
 
 The **Library of Yore Browser Extension** tracks the chapter you are reading in your browser and automatically updates your progress in the app — no clicking +1, no manual entry.
 
@@ -338,7 +383,7 @@ If a novel is not being detected, open the Edit dialog and confirm the Source UR
 
 ---
 
-## 10. System Tray & Background Mode
+## 11. System Tray & Background Mode
 
 Library of Yore is designed to run quietly in the background so the browser extension always has somewhere to send updates — even when you are not actively using the app.
 
@@ -374,7 +419,7 @@ The app will start minimised to the tray on each login.
 
 ---
 
-## 11. Search, Filter & Sort
+## 12. Search, Filter & Sort
 
 ### Search
 
@@ -404,7 +449,7 @@ Only checked statuses are displayed.
 
 ---
 
-## 12. Exporting Your Library
+## 13. Exporting Your Library
 
 Click **Export Excel** in the toolbar. Choose a save location. The file opens in Excel or any spreadsheet app.
 
@@ -435,7 +480,7 @@ Click **Export Excel** in the toolbar. Choose a save location. The file opens in
 
 ---
 
-## 13. Settings & Configuration
+## 14. Settings & Configuration
 
 Settings are saved to:
 
@@ -462,7 +507,7 @@ Delete `config.json` and restart the app. It recreates the file with all default
 
 ---
 
-## 14. Data Backup & Migration
+## 15. Data Backup & Migration
 
 ### Full Backup (MongoDB Dump)
 
@@ -492,7 +537,7 @@ Use **Export Excel** from the toolbar. This gives you a readable spreadsheet but
 
 ---
 
-## 15. Building from Source
+## 16. Building from Source
 
 This section is for developers who want to modify and rebuild the app.
 
@@ -531,7 +576,7 @@ python main.py
 
 ---
 
-## 16. Troubleshooting
+## 17. Troubleshooting
 
 ### App Won't Open (Silent Crash)
 
@@ -589,6 +634,18 @@ If using a non-default port:
 - Novelfire uses JavaScript rendering; scraping it requires Playwright/Chromium (bundled in the exe)
 - Webnovel.com is not supported — it uses aggressive anti-bot protection
 
+### Synopsis Shows a "Summary" Prefix
+
+**Symptom:** Synopsis text starts with "SummaryThe story begins..." or "DescriptionIn a world where...".
+
+Update to **v1.3.0** — the scraper now strips leading `Summary`, `Description`, and `Synopsis` labels automatically, including variants with or without a colon separator.
+
+### Novel Status Is Wrong (Shows Ongoing When Completed)
+
+**Symptom:** A completed novel is still marked Ongoing after adding.
+
+Update to **v1.3.0** — earlier versions read status from the entire page text blob, which caused story synopsis words like "completed his journey" to false-match. v1.3.0 uses targeted CSS selectors on the status badge element only.
+
 ### Chapter Count Is Wrong
 
 **Symptom:** A novel with 2111 chapters shows as 111, or shows 0.
@@ -612,9 +669,15 @@ If using a non-default port:
 
 This is normal for the single-file portable `.exe` on first launch — PyInstaller extracts ~30 MB to a temp folder. Subsequent launches are faster because the temp folder is cached. If you need faster startup, use the `--folder` build from source instead.
 
+### "Title is required" Error When Saving
+
+**Symptom:** Clicking Save Novel immediately shows a "Title is required" validation error before any data is filled in.
+
+Update to **v1.3.0** — earlier versions had Qt's `autoDefault` button behaviour triggered when pressing Enter in any field (including the URL input after scraping), which fired Save before the form was populated. v1.3.0 fully blocks Enter from triggering any button in the dialog.
+
 ---
 
-## 17. Keyboard Shortcuts
+## 18. Keyboard Shortcuts
 
 | Shortcut | Action |
 |----------|--------|
@@ -623,11 +686,11 @@ This is normal for the single-file portable `.exe` on first launch — PyInstall
 | `Ctrl + E` | Export to Excel |
 | `F5` | Refresh library |
 | `Delete` | Delete selected novel |
-| `Enter` | Open / edit selected novel |
+| `Enter` (in Add/Edit dialog URL field) | Trigger Fetch Metadata |
 
 ---
 
-## 18. FAQ
+## 19. FAQ
 
 **Q: Is my data stored online or shared with anyone?**
 No. Everything is stored locally in MongoDB on your own machine. There are no accounts, no cloud sync, and no telemetry.
@@ -642,13 +705,13 @@ MongoDB handles tens of millions of documents with ease. Your practical limit is
 No — this is expected on the first launch of the single-file build. PyInstaller unpacks itself to `%TEMP%`. It's faster from the second launch onward. Use `python build.py --folder` for a faster-starting folder build if you prefer.
 
 **Q: Can I add support for other novel sites?**
-Yes. See [Section 15 — Adding a New Scraper](#adding-a-new-scraper).
+Yes. See [Section 16 — Adding a New Scraper](#adding-a-new-scraper).
 
 **Q: Why was Webnovel.com removed?**
 Webnovel uses Cloudflare and JavaScript-heavy anti-bot protection that makes reliable scraping impossible without constant maintenance.
 
 **Q: How do I back up my library?**
-Use `mongodump` for a complete backup (includes covers), or **Export Excel** from the toolbar for a human-readable reference copy. See [Section 14](#14-data-backup--migration).
+Use `mongodump` for a complete backup (includes covers), or **Export Excel** from the toolbar for a human-readable reference copy. See [Section 15](#15-data-backup--migration).
 
 **Q: Can I edit the config file directly?**
 Yes. `%LOCALAPPDATA%\LibraryOfYore\config.json` is plain JSON. Edit with any text editor. Delete it to reset all settings to defaults.
@@ -657,7 +720,16 @@ Yes. `%LOCALAPPDATA%\LibraryOfYore\config.json` is plain JSON. Edit with any tex
 No. Close the window and Library of Yore hides to the system tray. The API server stays running and the extension keeps tracking your chapters. Only use **Quit** from the tray menu when you want to fully stop the app.
 
 **Q: Where do I download the browser extension?**
-From the [Releases](https://github.com/NurAbir/Library-of-Yore/releases) page on GitHub. Download `Library.of.Yore.Browser.Extension.zip` from the latest release and follow the instructions in [Section 9](#9-browser-extension).
+From the [Releases](https://github.com/NurAbir/Library-of-Yore/releases) page on GitHub. Download `Library.of.Yore.Browser.Extension.zip` from the latest release and follow the instructions in [Section 10](#10-browser-extension).
+
+**Q: Which novels get auto-refreshed on startup?**
+In v1.3.0, only **Novelfire** novels are auto-refreshed. Support for additional sources is planned in a future release.
+
+**Q: Can I turn off auto-refresh?**
+There is no toggle in v1.3.0. The refresh runs in the background and is non-intrusive — the UI remains fully responsive throughout. A setting to disable it is planned for a future release.
+
+**Q: The synopsis still shows "Summary..." after updating.**
+Make sure you replaced `scrapers/novelfire.py` with the v1.3.0 version and rebuilt (or replaced the `.exe`). For novels already in your library, trigger a re-fetch by opening Edit and clicking Fetch Metadata again.
 
 ---
 
@@ -665,6 +737,6 @@ From the [Releases](https://github.com/NurAbir/Library-of-Yore/releases) page on
 
 **Happy Reading!**
 
-*Library of Yore v1.2.0*
+*Library of Yore v1.3.0*
 
 </div>
