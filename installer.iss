@@ -1,14 +1,23 @@
 ; Inno Setup script for LibraryOfYore
 ; Requires Inno Setup 6.x: https://jrsoftware.org/isdl.php
 
-#define MyAppName "Library of Yore"
-#define MyAppVersion "1.3.0"
+#define MyAppName     "Library of Yore"
+#define MyAppVersion  "1.3.0"
 #define MyAppPublisher "LibraryOfYore"
-#define MyAppExeName "LibraryOfYore.exe"
+#define MyAppExeName  "LibraryOfYore.exe"
+#define MyDistDir     "dist\LibraryOfYore"
+#define MyExePath     MyDistDir + "\" + MyAppExeName
+
+; Hard-fail at compile time with a clear message if the build hasn't been run yet.
+; Run build_release.bat (or python build.py --folder) before compiling this script.
+#if !FileExists(MyExePath)
+  #error "dist\LibraryOfYore\LibraryOfYore.exe not found. Run build_release.bat first, then compile this script."
+#endif
+
+#define MyIconPath MyDistDir + "\assets\logo.ico"
 
 [Setup]
 AppId={{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}
-SetupIconFile=assets\logo.ico
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
@@ -16,6 +25,10 @@ DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 OutputDir=installer
 OutputBaseFilename=LibraryOfYore_Setup
+#if FileExists(MyIconPath)
+SetupIconFile={#MyIconPath}
+#endif
+UninstallDisplayIcon={app}\{#MyAppExeName}
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
@@ -29,15 +42,10 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-; Folder build (matches build_release.bat --onedir output)
-; dist\LibraryOfYore\ is the onedir output folder — copy its CONTENTS into {app}
-; so the exe lands at {app}\LibraryOfYore.exe, not {app}\LibraryOfYore\LibraryOfYore.exe
-Source: "dist\LibraryOfYore\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
-; Single-file build alternative (uncomment if using --onefile):
-; Source: "dist\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#MyDistDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
+Name: "{group}\{#MyAppName}";     Filename: "{app}\{#MyAppExeName}"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 
 [Run]
@@ -47,5 +55,4 @@ Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChang
 function InitializeSetup(): Boolean;
 begin
   Result := True;
-  // Optional: check for MongoDB here and warn user
 end;

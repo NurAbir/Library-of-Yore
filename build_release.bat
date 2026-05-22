@@ -23,20 +23,21 @@ if errorlevel 1 (
     exit /b 1
 )
 
-REM Check Inno Setup
+REM ── FIXED: use !INNO! (delayed expansion) inside the nested if block ──
+set SKIP_INNO=0
 set INNO="C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
-if not exist %INNO% (
+if not exist !INNO! (
     set INNO="C:\Program Files\Inno Setup 6\ISCC.exe"
-    if not exist %INNO% (
-        echo [WARNING] Inno Setup not found at default location.
-        echo [WARNING] Skipping installer creation.
-        echo [WARNING] Download from: https://jrsoftware.org/isdl.php
-        set SKIP_INNO=1
-    )
+)
+if not exist !INNO! (
+    echo [WARNING] Inno Setup not found at default location.
+    echo [WARNING] Skipping installer creation.
+    echo [WARNING] Download from: https://jrsoftware.org/isdl.php
+    set SKIP_INNO=1
 )
 
 echo [1/4] Cleaning old builds...
-if exist dist rmdir /s /q dist
+if exist dist  rmdir /s /q dist
 if exist build rmdir /s /q build
 if exist *.spec del /q *.spec
 
@@ -54,7 +55,10 @@ python -m PyInstaller ^
     --add-data "utils;utils" ^
     --add-data "assets;assets" ^
     --add-data "config.py;." ^
-    --hidden-import scrapers.novelfire --hidden-import scrapers.wuxiaworld --hidden-import scrapers.freewebnovel --hidden-import scrapers.novelupdates ^
+    --hidden-import scrapers.novelfire ^
+    --hidden-import scrapers.wuxiaworld ^
+    --hidden-import scrapers.freewebnovel ^
+    --hidden-import scrapers.novelupdates ^
     --hidden-import database.connection ^
     --hidden-import database.models ^
     --hidden-import pymongo ^
@@ -75,20 +79,20 @@ if errorlevel 1 (
 
 echo [3/4] Build complete!
 echo    Location: dist\LibraryOfYore
-echo    Run: dist\LibraryOfYore\LibraryOfYore.exe
+echo    Run:      dist\LibraryOfYore\LibraryOfYore.exe
 
-if defined SKIP_INNO (
+if !SKIP_INNO! == 1 (
     echo.
-    echo [4/4] Skipping installer (Inno Setup not found)
+    echo [4/4] Skipping installer ^(Inno Setup not found^)
     goto :done
 )
 
 echo [4/4] Creating installer with Inno Setup...
 if not exist installer mkdir installer
-%INNO% installer.iss
+!INNO! installer.iss
 
 if errorlevel 1 (
-    echo [WARNING] Installer creation failed, but build is ready.
+    echo [WARNING] Installer creation failed, but portable build is ready at dist\LibraryOfYore
     goto :done
 )
 
