@@ -30,7 +30,9 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 
 [Files]
 ; Folder build (matches build_release.bat --onedir output)
-Source: "dist\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+; dist\LibraryOfYore\ is the onedir output folder — copy its CONTENTS into {app}
+; so the exe lands at {app}\LibraryOfYore.exe, not {app}\LibraryOfYore\LibraryOfYore.exe
+Source: "dist\LibraryOfYore\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 ; Single-file build alternative (uncomment if using --onefile):
 ; Source: "dist\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
 
