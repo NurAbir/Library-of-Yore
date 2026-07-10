@@ -207,7 +207,7 @@ async function getSettings() {
 chrome.tabs.onActivated.addListener(async ({ tabId }) => {
   try {
     const tab = await chrome.tabs.get(tabId);
-    const novelHosts = ["novelfire.net", "freewebnovel.com", "wuxiaworld.com", "novelupdates.com"];
+    const novelHosts = ["novelfire.net", "novelphoenix.com", "freewebnovel.com", "wuxiaworld.com", "novelupdates.com"];
     const isNovelSite = novelHosts.some((h) => tab.url?.includes(h));
     if (!isNovelSite) {
       await updateBadge(null);

@@ -56,6 +56,7 @@ python -m PyInstaller ^
     --add-data "assets;assets" ^
     --add-data "config.py;." ^
     --hidden-import scrapers.novelfire ^
+    --hidden-import scrapers.novelphoenix ^
     --hidden-import scrapers.wuxiaworld ^
     --hidden-import scrapers.freewebnovel ^
     --hidden-import scrapers.novelupdates ^
@@ -69,6 +70,9 @@ python -m PyInstaller ^
     --hidden-import requests ^
     --hidden-import bs4 ^
     --hidden-import dateutil ^
+    --exclude-module numpy ^
+    --exclude-module pandas ^
+    --exclude-module matplotlib ^
     main.py
 
 if errorlevel 1 (

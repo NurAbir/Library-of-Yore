@@ -2,6 +2,23 @@
 
 All notable changes to Library of Yore.
 
+## [1.4.0] - 2026-07-10
+
+### Added
+- **NovelPhoenix.com scraper** (`scrapers/novelphoenix.py`) — NovelPhoenix runs on the same underlying site template as Novelfire, so this mirrors `novelfire.py`'s parsing strategy (title/author/cover/synopsis/status/genre selector cascade, chapter-count regex); registered in `scrapers/__init__.py` and added to PyInstaller hidden-imports in `build.bat`, `build_release.bat`, and `build.py`
+- **Browser extension support for NovelPhoenix.com** — new detector in `content.js` matching NovelPhoenix's `/novel/{slug}/chapter-{N}` URL pattern (Novelfire uses `/book/{slug}/chapter-{N}` — similar but not identical); domain added to `manifest.json` content-script matches, `background.js`'s tab-tracking host list, and the popup's supported-sites badge list
+- **`installer.iss` build-mode auto-detection** — the installer script now detects whether `dist\LibraryOfYore\LibraryOfYore.exe` (folder build) or `dist\LibraryOfYore.exe` (onefile build) exists and adapts automatically, instead of hardcoding one layout; a build living elsewhere can be pointed to manually with `ISCC.exe installer.iss /DMyDistDir=<folder containing LibraryOfYore.exe>`
+
+### Changed
+- Startup auto-refresh (previously Novelfire-only) now also re-scrapes NovelPhoenix novels in the background
+- `add_novel_dialog.py` now tags novels added from a NovelPhoenix URL with `source_name = "novelphoenix"`
+- `installer.iss`'s build-detection checks are now anchored to ISPP's `SourcePath` instead of plain relative paths
+
+### Fixed
+- **`AttributeError: module 'numpy' has no attribute 'short'` crash on startup** — `openpyxl`'s compat layer optionally imports `numpy` if present, but PyInstaller frequently bundles a broken/partial copy of it. Library of Yore never uses numpy directly, so `build.bat`, `build_release.bat`, and `build.py` now pass `--exclude-module numpy` (plus `pandas` and `matplotlib`, also unused) so `openpyxl` cleanly falls back to `NUMPY = False` instead of crashing on a half-imported module
+- **`installer.iss` failing to find `LibraryOfYore.exe` when compiled standalone** — Inno Setup's preprocessor resolves relative `FileExists()` checks against the compiler's *current working directory*, not the script's own folder. This made the installer work when `build_release.bat` called `ISCC.exe` from the project root, but fail with a false "exe not found" error when the script was compiled on its own (e.g. via the Inno Setup IDE) from a different working directory
+- `build.bat` and `build_release.bat` were each missing `--hidden-import scrapers.novelphoenix` — hidden imports are now consistent across all three build paths (`build.py`'s shared list, `build.bat`, `build_release.bat`)
+
 ## [1.3.0] - 2026-05-22
 
 ### Added

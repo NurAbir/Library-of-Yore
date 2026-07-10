@@ -480,20 +480,21 @@ class MainWindow(QMainWindow):
             self.statusbar.showMessage(f"Updated '{novel.title}' to chapter {novel.current_chapter}", 3000)
 
     def _start_novelfire_refresh(self):
-        """On startup, silently re-scrape all Novelfire novels to pull in the
-        latest chapter count and status, then update the DB and each card."""
+        """On startup, silently re-scrape all Novelfire/NovelPhoenix novels to pull in
+        the latest chapter count and status, then update the DB and each card."""
         if not self.repo:
             return
         all_novels = self.repo.get_all()
+        AUTO_REFRESH_DOMAINS = ("novelfire", "novelphoenix")
         novelfire_novels = [
             n for n in all_novels
-            if n.source_url and "novelfire" in n.source_url.lower()
+            if n.source_url and any(d in n.source_url.lower() for d in AUTO_REFRESH_DOMAINS)
         ]
         if not novelfire_novels:
             return
 
         self.statusbar.showMessage(
-            f"Auto-refreshing {len(novelfire_novels)} Novelfire novel(s) in background…"
+            f"Auto-refreshing {len(novelfire_novels)} novel(s) in background…"
         )
         self.refresh_worker = NovelRefreshWorker(novelfire_novels)
         self.refresh_worker.novel_updated.connect(self._on_novel_refreshed)
@@ -527,7 +528,7 @@ class MainWindow(QMainWindow):
 
     def _on_refresh_finished(self, count: int):
         msg = (
-            f"Auto-refresh complete — {count} Novelfire novel(s) updated."
+            f"Auto-refresh complete — {count} novel(s) updated."
             if count else "Auto-refresh complete — no changes found."
         )
         self.statusbar.showMessage(msg, 6000)
@@ -570,7 +571,7 @@ class MainWindow(QMainWindow):
             self, "About Library of Yore",
             "<h2>Library of Yore v1.0</h2>"
             "<p>A desktop bookmark tracker for web novels.</p>"
-            "<p>Supports: Webnovel.com, Novelfire.net</p>"
+            "<p>Supports: Webnovel.com, Novelfire.net, NovelPhoenix.com</p>"
             "<p>Built with Python, PyQt6, and MongoDB.</p>"
             f"<p><b>Browser Extension API:</b> localhost:{api_server.PORT}</p>"
         )

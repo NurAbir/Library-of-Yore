@@ -527,6 +527,8 @@ class AddNovelDialog(QDialog):
                 novel.source_name = "webnovel"
             elif "novelfire" in novel.source_url.lower():
                 novel.source_name = "novelfire"
+            elif "novelphoenix" in novel.source_url.lower():
+                novel.source_name = "novelphoenix"
 
         if self.cover_image_bytes:
             if self.is_edit and self.novel.cover_image_id:

@@ -30,6 +30,29 @@ const DETECTORS = {
     return { novelTitle, chapter, slug, sourceUrl };
   },
 
+  /** novelphoenix.com — same underlying template as novelfire, but with
+   *  /novel/ instead of /book/ in the URL.
+   *  Chapter URL:  /novel/{novel-slug}/chapter-{N}
+   *  Novel URL:    /novel/{novel-slug}
+   */
+  "novelphoenix.com": () => {
+    const m = location.pathname.match(/\/novel\/([^/]+)\/chapter-?(\d+)/i);
+    if (!m) return null;
+    const slug = m[1];
+    const chapter = parseInt(m[2], 10);
+
+    // The chapter page's h1 contains a link back to the novel info page
+    // whose text is the novel title, e.g. <h1><a href="/novel/{slug}">Title</a> Chapter N: ...</h1>
+    const novelTitle =
+      document.querySelector(`h1 a[href*='/novel/${slug}']`)?.textContent?.trim() ||
+      document.querySelector(".breadcrumb a:nth-child(2)")?.textContent?.trim() ||
+      _ogTitle()?.replace(/\s*[-|]\s*chapter\s*\d+.*/i, "").trim() ||
+      slug.replace(/-/g, " ");
+
+    const sourceUrl = `${location.origin}/novel/${slug}`;
+    return { novelTitle, chapter, slug, sourceUrl };
+  },
+
   /** freewebnovel.com
    *  Chapter URL:  /{novel-slug}/chapter-{N}.html  or  /{novel-slug}/chapter-{N}
    *  Novel URL:    /{novel-slug}.html  or  /{novel-slug}/

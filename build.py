@@ -21,6 +21,7 @@ SPEC_FILE = os.path.join(BASE_DIR, "LibraryOfYore.spec")
 
 COMMON_HIDDEN_IMPORTS = [
     "scrapers.novelfire",
+    "scrapers.novelphoenix",
     "scrapers.wuxiaworld",
     "scrapers.freewebnovel",
     "scrapers.novelupdates",
@@ -34,6 +35,16 @@ COMMON_HIDDEN_IMPORTS = [
     "requests",
     "bs4",
     "dateutil",
+]
+
+# openpyxl optionally uses numpy/pandas if present, but this app never needs
+# them and PyInstaller frequently bundles numpy incompletely (missing C
+# extension attributes at runtime -- e.g. "module 'numpy' has no attribute
+# 'short'"). Excluding them outright avoids that failure mode entirely.
+COMMON_EXCLUDES = [
+    "numpy",
+    "pandas",
+    "matplotlib",
 ]
 
 COMMON_ADD_DATA = [
@@ -71,6 +82,8 @@ def _base_cmd(onefile=False):
         cmd += ["--add-data", data]
     for imp in COMMON_HIDDEN_IMPORTS:
         cmd += ["--hidden-import", imp]
+    for exc in COMMON_EXCLUDES:
+        cmd += ["--exclude-module", exc]
     cmd.append(os.path.join(BASE_DIR, "main.py"))
     return cmd
 

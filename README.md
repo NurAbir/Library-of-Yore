@@ -12,7 +12,7 @@ Built with Python, PyQt6, and MongoDB.
 [![PyQt6](https://img.shields.io/badge/PyQt6-6.4+-green.svg)](https://riverbankcomputing.com/software/pyqt)
 [![MongoDB](https://img.shields.io/badge/MongoDB-Community-brightgreen.svg)](https://mongodb.com)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-1.3.0-orange.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/Version-1.4.0-orange.svg)](CHANGELOG.md)
 
 </div>
 
@@ -24,7 +24,7 @@ Built with Python, PyQt6, and MongoDB.
 
 A companion **browser extension** lets your reading progress update automatically as you read — even when the app window is closed, since Library of Yore runs quietly in the system tray.
 
-Supports **Novelfire**, **Wuxiaworld**, **FreeWebNovel**, and **NovelUpdates**.
+Supports **Novelfire**, **NovelPhoenix**, **Wuxiaworld**, **FreeWebNovel**, and **NovelUpdates**.
 
 ---
 
@@ -34,7 +34,7 @@ Supports **Novelfire**, **Wuxiaworld**, **FreeWebNovel**, and **NovelUpdates**.
 |---------|-------------|
 | **Visual Library** | Grid view with cover images, progress bars, and status badges |
 | **Auto-Scrape Metadata** | Paste a URL and fetch title, author, cover, synopsis, and chapter count automatically |
-| **Auto-Refresh on Startup** | Novelfire novels are silently re-scraped in the background when the app opens — latest chapter count, status, and synopsis update automatically |
+| **Auto-Refresh on Startup** | Novelfire and NovelPhoenix novels are silently re-scraped in the background when the app opens — latest chapter count, status, and synopsis update automatically |
 | **Updated Badge** | Cards that received new data during auto-refresh show a gold ✦ Updated badge |
 | **Chapter Tracking** | Track current chapter, total chapters, and completion percentage |
 | **Status Management** | Ongoing, Completed, Hiatus, Dropped, Planned |
@@ -53,6 +53,7 @@ Supports **Novelfire**, **Wuxiaworld**, **FreeWebNovel**, and **NovelUpdates**.
 | Site | URL Example |
 |------|-------------|
 | [Novelfire](https://novelfire.net) | `https://novelfire.net/book/shadow-slave` |
+| [NovelPhoenix](https://novelphoenix.com) | `https://novelphoenix.com/novel/shadow-slave` |
 | [Wuxiaworld](https://www.wuxiaworld.com) | `https://www.wuxiaworld.com/novel/renegade-immortal` |
 | [FreeWebNovel](https://freewebnovel.com) | `https://freewebnovel.com/novel/lord-of-the-mysteries` |
 | [NovelUpdates](https://www.novelupdates.com) | `https://www.novelupdates.com/series/lord-of-the-mysteries/` |
@@ -231,6 +232,7 @@ libraryofyore/
 │   ├── __init__.py         # Scraper factory (get_scraper_for_url)
 │   ├── base.py             # BaseScraper + ScraperResult dataclass
 │   ├── novelfire.py        # Novelfire.net scraper (requests + Playwright fallback)
+│   ├── novelphoenix.py     # NovelPhoenix.com scraper (requests + Playwright fallback)
 │   ├── wuxiaworld.py       # Wuxiaworld.com scraper
 │   ├── freewebnovel.py     # FreeWebNovel.com scraper
 │   └── novelupdates.py     # NovelUpdates.com scraper
@@ -276,6 +278,8 @@ All data is stored **locally** in your MongoDB instance — nothing leaves your 
 | Extension shows "Disconnected" | Make sure Library of Yore is running (check the system tray) |
 | Card not updating from extension | Confirm the novel's Source URL matches the site you are reading on |
 | Synopsis shows "Summary..." prefix | Update to v1.3.0 — the leading label is now stripped automatically |
+| `AttributeError: module 'numpy' has no attribute 'short'` on startup | Update to v1.4.0 — the build now excludes numpy/pandas/matplotlib, which openpyxl only used optionally and which PyInstaller was bundling incompletely |
+| Compiling `installer.iss` says exe not found even though it's there | Update to v1.4.0 — the installer script now anchors its path checks to the script's own folder instead of the compiler's working directory |
 
 ---
 

@@ -1,6 +1,6 @@
 # Library of Yore — User Manual
 
-**Version 1.3.0**
+**Version 1.4.0**
 
 A complete guide to installing, using, and troubleshooting Library of Yore — your personal desktop web novel tracker.
 
@@ -106,7 +106,7 @@ On the very first launch, Library of Yore checks for MongoDB at `localhost:27017
 
 ### If MongoDB is Found
 
-The main window opens immediately and Novelfire novels begin auto-refreshing in the background (see [Section 9](#9-auto-refresh-on-startup)). Skip ahead to [Section 5](#5-adding-a-novel).
+The main window opens immediately and Novelfire and NovelPhoenix novels begin auto-refreshing in the background (see [Section 9](#9-auto-refresh-on-startup)). Skip ahead to [Section 5](#5-adding-a-novel).
 
 ### If MongoDB is Not Found
 
@@ -153,6 +153,7 @@ This is the fastest way to add a novel with full metadata.
 | Site | Example URL |
 |------|-------------|
 | Novelfire | `https://novelfire.net/book/shadow-slave` |
+| NovelPhoenix | `https://novelphoenix.com/novel/shadow-slave` |
 | Wuxiaworld | `https://www.wuxiaworld.com/novel/renegade-immortal` |
 | FreeWebNovel | `https://freewebnovel.com/novel/lord-of-the-mysteries` |
 | NovelUpdates | `https://www.novelupdates.com/series/lord-of-the-mysteries/` |
@@ -288,7 +289,7 @@ Sort by **Last Read** to jump back to whatever you were reading most recently.
 
 ## 9. Auto-Refresh on Startup
 
-Every time Library of Yore opens, it silently re-scrapes all **Novelfire** novels in the background to check for new chapters, status changes, or updated synopsis text. No action is required — it happens automatically.
+Every time Library of Yore opens, it silently re-scrapes all **Novelfire and NovelPhoenix** novels in the background to check for new chapters, status changes, or updated synopsis text. No action is required — it happens automatically.
 
 ### What Gets Updated
 
@@ -308,11 +309,11 @@ Any card that received a change during auto-refresh shows a small gold **✦ Upd
 
 While auto-refresh is running, the status bar at the bottom of the window shows:
 
-> *Auto-refreshing 3 Novelfire novel(s) in background…*
+> *Auto-refreshing 3 novel(s) in background…*
 
 When complete, it changes to:
 
-> *Auto-refresh complete — 2 Novelfire novel(s) updated.*
+> *Auto-refresh complete — 2 novel(s) updated.*
 
 or
 
@@ -321,7 +322,7 @@ or
 ### Notes
 
 - Auto-refresh runs entirely in the background — the UI stays fully responsive
-- Only Novelfire novels are refreshed in v1.3.0. Support for other sources is planned in a future release
+- As of v1.4.0, Novelfire and NovelPhoenix novels are refreshed. Support for other sources is planned in a future release
 - If a scrape fails for an individual novel (network error, site unavailable), it is silently skipped and the rest continue
 
 ---
@@ -377,7 +378,7 @@ Click the extension icon in your browser toolbar. The popup shows:
 
 ### Matching Novels
 
-For the extension to update a novel, that novel must be saved in your library with a **Source URL** that matches the site you are reading on. The extension matches by domain and URL path — for example, if you saved `https://novelfire.net/book/shadow-slave`, reading any chapter URL under that path will be recognised as the same novel.
+For the extension to update a novel, that novel must be saved in your library with a **Source URL** that matches the site you are reading on. The extension matches by domain and URL path — for example, if you saved `https://novelfire.net/book/shadow-slave`, reading any chapter URL under that path will be recognised as the same novel. The same applies to NovelPhoenix, e.g. `https://novelphoenix.com/novel/shadow-slave`.
 
 If a novel is not being detected, open the Edit dialog and confirm the Source URL is set to the novel's main page on the supported site.
 
@@ -464,7 +465,7 @@ Click **Export Excel** in the toolbar. Choose a save location. The file opens in
 | Total Chapters | Known total (blank if unknown) |
 | % Complete | Calculated completion percentage |
 | Source URL | Link to the novel page |
-| Source | novelfire / wuxiaworld / freewebnovel / novelupdates / manual |
+| Source | novelfire / novelphoenix / wuxiaworld / freewebnovel / novelupdates / manual |
 | Last Read | ISO 8601 timestamp |
 | Date Added | When you first added it |
 | Rating | Your 0–10 rating |
@@ -567,12 +568,15 @@ python main.py
 > **Single-file vs folder build:**
 > `--onefile` (default for `build.bat`) packs everything into one `.exe`. It extracts itself to a temp folder on each launch, adding ~3–5 seconds to startup. `--folder` is faster to launch but produces a folder with many files. Choose `--onefile` for distribution, `--folder` for development/debugging.
 
+> **Note on `--exclude-module`:** as of v1.4.0, all three build paths pass `--exclude-module numpy --exclude-module pandas --exclude-module matplotlib`. None of these are used by the app — `openpyxl` only imports numpy *optionally*, and PyInstaller has a history of bundling numpy incompletely, which can crash the built exe with `AttributeError: module 'numpy' has no attribute 'short'`. Excluding it lets openpyxl's own fallback handle the missing import cleanly.
+
 ### Adding a New Scraper
 
 1. Create `scrapers/mysite.py` inheriting from `BaseScraper`
 2. Implement `SOURCE_NAME`, `DOMAIN_PATTERNS`, and `scrape(url)`
 3. Register it in `scrapers/__init__.py` → `get_scraper_for_url()`
-4. Add `--hidden-import scrapers.mysite` to `build.bat` and `build.py`
+4. Add `--hidden-import scrapers.mysite` in **all three** build paths — `build.bat`, `build_release.bat`, and `build.py`'s `COMMON_HIDDEN_IMPORTS` list. These are maintained separately and drift easily; a scraper missing from just one still works when run from source but silently breaks in that one built `.exe`
+5. If the site should also support the browser extension's live chapter tracking, add its domain to `Library of Yore Browser Extension/manifest.json` (content-script matches), a detector function in `content.js`, and the domain to `background.js`'s `novelHosts` list
 
 ---
 
@@ -589,6 +593,7 @@ If double-clicking the `.exe` does nothing or the window flashes and disappears:
 | Error in crash_log.txt | Fix |
 |------------------------|-----|
 | `ModuleNotFoundError` | Rebuild with the latest `build.bat` (v1.0.1+) |
+| `AttributeError: module 'numpy' has no attribute 'short'` | Rebuild with v1.4.0+ — `numpy`/`pandas`/`matplotlib` are now excluded from the build since they're unused and PyInstaller was bundling numpy incompletely |
 | `Cannot connect to MongoDB` | Start MongoDB service (see below) |
 | `FileNotFoundError: assets/logo.ico` | Make sure the `assets/` folder is present when building |
 | Qt platform plugin error | Reinstall from a fresh build |
@@ -652,6 +657,22 @@ Update to **v1.3.0** — earlier versions read status from the entire page text 
 
 - Update to **v1.0.1** — this was a regex bug in `novelfire.py` where `\d{1,3}` capped at 3 digits
 - After updating, delete and re-add the novel to re-scrape the correct count
+
+### App Crashes on Launch with a numpy AttributeError
+
+**Symptom:** `crash_log.txt` shows `AttributeError: module 'numpy' has no attribute 'short'`, traced through `openpyxl\compat\numbers.py`.
+
+- `openpyxl` optionally uses numpy if it's present, but PyInstaller can bundle numpy incompletely, leaving a broken copy that crashes on import
+- Update to **v1.4.0** — the build now excludes numpy, pandas, and matplotlib entirely (none of which the app actually uses), so `openpyxl` falls back cleanly instead
+- If you're building from source yourself, do a clean rebuild (`python build.py --clean` or delete `dist\`/`build\` first) so the excluded modules actually drop out of the new build
+
+### Installer Says "LibraryOfYore.exe Not Found" Even Though It's There
+
+**Symptom:** Compiling `installer.iss` directly (not via `build_release.bat`) fails at compile time with a "could not find LibraryOfYore.exe" error, even though the exe is sitting right there in `dist\`.
+
+- This was an Inno Setup preprocessor quirk — its relative `FileExists()` checks resolve against the compiler's *current working directory*, not the script's own folder, so it could fail depending on how you launched the compile
+- Update to **v1.4.0** — `installer.iss` now anchors those checks to its own folder and also auto-detects onefile vs. folder builds, so it finds the exe regardless of how or where you compile from
+- If you still hit this (e.g. a build living in a completely different location), pass the folder containing the exe manually: `ISCC.exe installer.iss /DMyDistDir="C:\path\to\folder"`
 
 ### Cover Image Won't Load
 
@@ -723,10 +744,10 @@ No. Close the window and Library of Yore hides to the system tray. The API serve
 From the [Releases](https://github.com/NurAbir/Library-of-Yore/releases) page on GitHub. Download `Library.of.Yore.Browser.Extension.zip` from the latest release and follow the instructions in [Section 10](#10-browser-extension).
 
 **Q: Which novels get auto-refreshed on startup?**
-In v1.3.0, only **Novelfire** novels are auto-refreshed. Support for additional sources is planned in a future release.
+As of v1.4.0, **Novelfire** and **NovelPhoenix** novels are auto-refreshed. Support for additional sources is planned in a future release.
 
 **Q: Can I turn off auto-refresh?**
-There is no toggle in v1.3.0. The refresh runs in the background and is non-intrusive — the UI remains fully responsive throughout. A setting to disable it is planned for a future release.
+There is no toggle yet. The refresh runs in the background and is non-intrusive — the UI remains fully responsive throughout. A setting to disable it is planned for a future release.
 
 **Q: The synopsis still shows "Summary..." after updating.**
 Make sure you replaced `scrapers/novelfire.py` with the v1.3.0 version and rebuilt (or replaced the `.exe`). For novels already in your library, trigger a re-fetch by opening Edit and clicking Fetch Metadata again.
@@ -737,6 +758,6 @@ Make sure you replaced `scrapers/novelfire.py` with the v1.3.0 version and rebui
 
 **Happy Reading!**
 
-*Library of Yore v1.3.0*
+*Library of Yore v1.4.0*
 
 </div>

@@ -30,6 +30,8 @@
       "matches": [
         "*://novelfire.net/*",
         "*://www.novelfire.net/*",
+        "*://novelphoenix.com/*",
+        "*://www.novelphoenix.com/*",
         "*://freewebnovel.com/*",
         "*://www.freewebnovel.com/*",
         "*://wuxiaworld.com/*",
