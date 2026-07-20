@@ -10,6 +10,7 @@ from PyQt6.QtGui import QPixmap
 
 from database.connection import test_connection
 from config import save_config, DEFAULT_MONGO_URI, get_asset_path
+from ui import theme
 
 
 class ConnectionTester(QThread):
@@ -36,9 +37,11 @@ class SetupWizard(QDialog):
         self._test_connection()
 
     def _build_ui(self):
+        self.setStyleSheet(theme.dialog_stylesheet())
+
         layout = QVBoxLayout(self)
         layout.setSpacing(16)
-        layout.setContentsMargins(24, 24, 24, 24)
+        layout.setContentsMargins(28, 28, 28, 24)
 
         # Header
         # Logo
@@ -46,12 +49,12 @@ class SetupWizard(QDialog):
         logo_path = get_asset_path("logo.png")
         logo_pixmap = QPixmap(logo_path)
         if not logo_pixmap.isNull():
-            logo_label.setPixmap(logo_pixmap.scaled(80, 80, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
+            logo_label.setPixmap(logo_pixmap.scaled(72, 72, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
         logo_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(logo_label)
 
         title = QLabel("Welcome to Library of Yore")
-        title.setStyleSheet("font-size: 20px; font-weight: bold;")
+        title.setStyleSheet(f"font-size: 20px; font-weight: 700; color: {theme.TEXT_PRIMARY};")
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(title)
 
@@ -60,12 +63,14 @@ class SetupWizard(QDialog):
             "If you haven't installed it yet, download it from the official site."
         )
         info.setWordWrap(True)
+        info.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        info.setStyleSheet(f"color: {theme.TEXT_SECONDARY}; font-size: 13px;")
         layout.addWidget(info)
 
         # Separator
         line = QFrame()
         line.setFrameShape(QFrame.Shape.HLine)
-        line.setStyleSheet("color: #444;")
+        line.setStyleSheet(f"color: {theme.BORDER};")
         layout.addWidget(line)
 
         # MongoDB URI input
@@ -88,24 +93,29 @@ class SetupWizard(QDialog):
         # Buttons
         btn_layout = QHBoxLayout()
 
-        self.download_btn = QPushButton(" Download MongoDB")
+        self.download_btn = QPushButton("Download MongoDB")
+        self.download_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.download_btn.setToolTip("Open MongoDB download page in browser")
         self.download_btn.clicked.connect(self._open_download_page)
         btn_layout.addWidget(self.download_btn)
 
-        self.start_svc_btn = QPushButton(" Start MongoDB Service")
+        self.start_svc_btn = QPushButton("Start MongoDB Service")
+        self.start_svc_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.start_svc_btn.setToolTip("Try to start MongoDB Windows service")
         self.start_svc_btn.clicked.connect(self._start_service)
         btn_layout.addWidget(self.start_svc_btn)
 
         btn_layout.addStretch()
 
-        self.retry_btn = QPushButton(" Retry Connection")
+        self.retry_btn = QPushButton("Retry Connection")
+        self.retry_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.retry_btn.setDefault(True)
         self.retry_btn.clicked.connect(self._test_connection)
         btn_layout.addWidget(self.retry_btn)
 
         self.continue_btn = QPushButton("Continue →")
+        self.continue_btn.setObjectName("primaryButton")
+        self.continue_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.continue_btn.setEnabled(False)
         self.continue_btn.clicked.connect(self.accept)
         btn_layout.addWidget(self.continue_btn)
@@ -119,12 +129,12 @@ class SetupWizard(QDialog):
             "You can change this later in Settings.</i>"
         )
         note.setWordWrap(True)
-        note.setStyleSheet("color: gray; font-size: 11px;")
+        note.setStyleSheet(f"color: {theme.TEXT_MUTED}; font-size: 11px;")
         layout.addWidget(note)
 
     def _test_connection(self):
         self.status_label.setText("Testing connection...")
-        self.status_label.setStyleSheet("color: #aaa;")
+        self.status_label.setStyleSheet(f"color: {theme.TEXT_SECONDARY};")
         self.progress.setRange(0, 0)
         self.continue_btn.setEnabled(False)
         self.retry_btn.setEnabled(False)
@@ -140,14 +150,14 @@ class SetupWizard(QDialog):
         self.retry_btn.setEnabled(True)
 
         if ok:
-            self.status_label.setText(f" {msg}")
-            self.status_label.setStyleSheet("color: #d4af37; font-weight: bold;")
+            self.status_label.setText(f"✓ {msg}")
+            self.status_label.setStyleSheet(f"color: {theme.SUCCESS}; font-weight: 600;")
             self.continue_btn.setEnabled(True)
             self.continue_btn.setDefault(True)
             save_config({"mongo_uri": self.uri_input.text().strip()})
         else:
-            self.status_label.setText(f" {msg}")
-            self.status_label.setStyleSheet("color: #f44336;")
+            self.status_label.setText(f"✕ {msg}")
+            self.status_label.setStyleSheet(f"color: {theme.DANGER}; font-weight: 600;")
             self.continue_btn.setEnabled(False)
 
     def _open_download_page(self):

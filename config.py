@@ -6,7 +6,7 @@ from pathlib import Path
 
 APP_NAME = "LibraryOfYore"
 DISPLAY_NAME = "Library of Yore"
-APP_VERSION = "1.0.0"
+APP_VERSION = "1.5.0"
 
 # Paths
 APP_DATA_DIR = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData/Local")) / APP_NAME
@@ -52,7 +52,6 @@ def load_config():
         "theme": "dark",
         "window_size": [1200, 800],
         "default_sort": "last_read",
-        "grid_view": True,
     }
     if CONFIG_FILE.exists():
         try:

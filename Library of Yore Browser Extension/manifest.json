@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Library of Yore — Reading Tracker",
-  "version": "1.0.0",
+  "version": "1.5.0",
   "description": "Automatically tracks your reading progress on novel sites and syncs to Library of Yore.",
 
   "icons": {

@@ -2,6 +2,25 @@
 
 All notable changes to Library of Yore.
 
+## [1.5.0] - 2026-07-20
+
+### Added
+- **Screen-aware launch** — the app now detects the primary screen's available geometry on startup and opens maximized (windowed full-screen) to fill it, instead of a hardcoded 1300×850 window
+- **Responsive grid** — the novel grid's column count is now computed from the actual scroll-viewport width and recalculated (debounced) on window resize, so the layout adapts whether you're on a small laptop screen or an ultrawide monitor
+- **`ui/theme.py`** — a centralized design-system module (palette, radii, typography, shared QSS fragments) used by the main window, novel cards, Add Novel dialog, and setup wizard, so all four stay visually consistent going forward
+- Refined dark theme: antique-gold accent on a charcoal-slate palette, drop-shadowed novel cards, a branded sidebar header, and a primary-styled "+ Add Novel" button
+
+### Changed
+- **List view removed** — the app now only offers the cover grid; the Grid/List toggle button and the `View → Grid View / List View` menu items have been removed
+- First-run **setup wizard** now uses the shared dark theme (previously it had no styling at all and looked out of place next to the rest of the app)
+- App version is now read from `config.APP_VERSION` everywhere (window title/about dialog, `main.py`, browser extension manifest, installer) instead of being hardcoded separately in each place
+
+### Fixed
+- **Version drift** — `config.py` reported `1.0.0`, the installer reported `1.4.0`, and the About dialog reported `v1.0`, all simultaneously; now a single source of truth
+- **Tray restore bug** — reopening the window from the system tray called `showNormal()` unconditionally, silently un-maximizing it every time even if it had been maximized before being hidden
+- **Fixed 5-column grid** — the novel grid previously always laid out 5 columns regardless of window size, wasting space on large screens and risking clipped/overlapping cards on narrow ones (the horizontal scrollbar is intentionally disabled); columns are now computed from the real available width
+- Removed the orphaned `grid_view` config default, which was never actually read by the app
+
 ## [1.4.0] - 2026-07-10
 
 ### Added

@@ -13,6 +13,7 @@ from database.models import Novel, NovelRepository
 from scrapers import get_scraper_for_url
 from utils.helpers import download_image, bytes_to_pixmap
 from config import STATUSES, get_asset_path
+from ui import theme
 
 
 class ScrapeWorker(QThread):
@@ -96,6 +97,8 @@ class AddNovelDialog(QDialog):
         url_layout.addWidget(self.url_input, stretch=3)
 
         self.fetch_btn = QPushButton("Fetch Metadata")
+        self.fetch_btn.setObjectName("primaryButton")
+        self.fetch_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.fetch_btn.setAutoDefault(False)
         self.fetch_btn.setToolTip("Scrape title, cover, chapters from the URL")
         self.fetch_btn.setMinimumHeight(36)
@@ -115,7 +118,7 @@ class AddNovelDialog(QDialog):
 
         # Inline fetch-status label (replaces the pop-up confirmation)
         self.fetch_status_label = QLabel("")
-        self.fetch_status_label.setStyleSheet("color: #4caf50; font-size: 11px; padding: 0 4px;")
+        self.fetch_status_label.setStyleSheet(f"color: {theme.SUCCESS}; font-size: 11px; padding: 0 4px; font-weight: 600;")
         self.fetch_status_label.setVisible(False)
         layout.addWidget(self.fetch_status_label)
         splitter = QSplitter(Qt.Orientation.Horizontal)
@@ -135,7 +138,7 @@ class AddNovelDialog(QDialog):
         self.cover_label = QLabel("No cover")
         self.cover_label.setFixedSize(200, 300)
         self.cover_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.cover_label.setStyleSheet("background-color: #252525; border-radius: 8px; color: #666; font-size: 14px;")
+        self.cover_label.setStyleSheet(f"background-color: {theme.BG_SUNKEN}; border: 1px solid {theme.BORDER}; border-radius: 8px; color: {theme.TEXT_MUTED}; font-size: 13px;")
         cover_inner.addWidget(self.cover_label, alignment=Qt.AlignmentFlag.AlignCenter)
 
         self.load_cover_btn = QPushButton("Load from File")
@@ -272,26 +275,16 @@ class AddNovelDialog(QDialog):
         btn_layout.addStretch()
 
         self.save_btn = QPushButton("Save Novel")
+        self.save_btn.setObjectName("saveButton")
+        self.save_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.save_btn.setAutoDefault(False)
         self.save_btn.setMinimumHeight(40)
         self.save_btn.setMinimumWidth(140)
-        self.save_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #d4af37;
-                color: #1a1a1a;
-                border: none;
-                border-radius: 6px;
-                padding: 8px 24px;
-                font-weight: bold;
-                font-size: 13px;
-            }
-            QPushButton:hover { background-color: #b8962e; }
-            QPushButton:pressed { background-color: #a08028; }
-        """)
         self.save_btn.clicked.connect(self._save_novel)
         btn_layout.addWidget(self.save_btn)
 
         self.cancel_btn = QPushButton("Cancel")
+        self.cancel_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.cancel_btn.setAutoDefault(False)
         self.cancel_btn.setMinimumHeight(40)
         self.cancel_btn.setMinimumWidth(100)
@@ -306,70 +299,18 @@ class AddNovelDialog(QDialog):
         # === BUTTONS (outside scroll, always visible) ===
         btn_separator = QFrame()
         btn_separator.setFrameShape(QFrame.Shape.HLine)
-        btn_separator.setStyleSheet("color: #333;")
+        btn_separator.setStyleSheet(f"color: {theme.BORDER};")
         main_layout.addWidget(btn_separator)
         main_layout.addLayout(btn_layout)
 
-        # Global style
-        self.setStyleSheet("""
-            QDialog { background-color: #121212; color: #eee; }
-            QGroupBox {
-                color: #d4af37;
-                font-weight: bold;
-                font-size: 13px;
-                border: 1px solid #333;
-                border-radius: 8px;
-                margin-top: 14px;
-                padding-top: 10px;
-            }
-            QGroupBox::title { subcontrol-origin: margin; left: 12px; padding: 0 6px; }
-            QLineEdit, QTextEdit, QSpinBox, QComboBox {
-                background-color: #1e1e1e;
-                color: #eee;
-                border: 1px solid #444;
-                border-radius: 6px;
-                padding: 8px;
-                font-size: 13px;
-            }
-            QLineEdit:focus, QTextEdit:focus, QSpinBox:focus, QComboBox:focus {
-                border: 1px solid #d4af37;
-            }
-            QPushButton {
-                background-color: #2a2a2a;
-                color: #eee;
-                border: 1px solid #444;
-                border-radius: 6px;
-                padding: 8px 16px;
-                font-size: 12px;
-            }
-            QPushButton:hover { background-color: #333; border-color: #555; }
-            QLabel { color: #ccc; font-size: 13px; }
-            QScrollBar:vertical {
-                background: #1a1a1a;
-                width: 10px;
-                border-radius: 5px;
-            }
-            QScrollBar::handle:vertical {
-                background: #444;
-                border-radius: 5px;
-                min-height: 30px;
-            }
-            QScrollBar::handle:vertical:hover { background: #555; }
-        """)
+        # Global style — shared with the main window / setup wizard
+        self.setStyleSheet(theme.dialog_stylesheet())
 
     def _groupbox_style(self):
-        return """
-            QGroupBox {
-                color: #d4af37;
-                font-weight: bold;
-                font-size: 13px;
-                border: 1px solid #333;
-                border-radius: 8px;
-                margin-top: 14px;
-                padding-top: 10px;
-            }
-            QGroupBox::title { subcontrol-origin: margin; left: 12px; padding: 0 6px; }
-        """
+        # Group boxes already pick up their look from the shared stylesheet;
+        # kept as a no-op call site so existing setStyleSheet(...) calls above
+        # don't need to change.
+        return ""
 
     def _on_url_changed(self, text: str):
         has_url = bool(text.strip())
@@ -468,7 +409,7 @@ class AddNovelDialog(QDialog):
         self.scraped_cover_url = ""
         self.cover_label.setText("No cover")
         self.cover_label.setPixmap(QPixmap())
-        self.cover_label.setStyleSheet("background-color: #252525; border-radius: 8px; color: #666; font-size: 14px;")
+        self.cover_label.setStyleSheet(f"background-color: {theme.BG_SUNKEN}; border: 1px solid {theme.BORDER}; border-radius: 8px; color: {theme.TEXT_MUTED}; font-size: 13px;")
 
     def _update_cover_preview(self, image_bytes: bytes):
         pixmap = bytes_to_pixmap(image_bytes, 200, 300)

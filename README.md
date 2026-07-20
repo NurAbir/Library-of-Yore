@@ -12,7 +12,7 @@ Built with Python, PyQt6, and MongoDB.
 [![PyQt6](https://img.shields.io/badge/PyQt6-6.4+-green.svg)](https://riverbankcomputing.com/software/pyqt)
 [![MongoDB](https://img.shields.io/badge/MongoDB-Community-brightgreen.svg)](https://mongodb.com)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-1.4.0-orange.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/Version-1.5.0-orange.svg)](CHANGELOG.md)
 
 </div>
 
@@ -32,7 +32,7 @@ Supports **Novelfire**, **NovelPhoenix**, **Wuxiaworld**, **FreeWebNovel**, and 
 
 | Feature | Description |
 |---------|-------------|
-| **Visual Library** | Grid view with cover images, progress bars, and status badges |
+| **Visual Library** | Responsive grid view with cover images, progress bars, and status badges — column count adapts to your window size |
 | **Auto-Scrape Metadata** | Paste a URL and fetch title, author, cover, synopsis, and chapter count automatically |
 | **Auto-Refresh on Startup** | Novelfire and NovelPhoenix novels are silently re-scraped in the background when the app opens — latest chapter count, status, and synopsis update automatically |
 | **Updated Badge** | Cards that received new data during auto-refresh show a gold ✦ Updated badge |
@@ -41,7 +41,8 @@ Supports **Novelfire**, **NovelPhoenix**, **Wuxiaworld**, **FreeWebNovel**, and 
 | **Search & Filter** | Filter by status, search by title/author/notes, sort by last read / rating / progress |
 | **Cover Storage** | Images stored in MongoDB GridFS — your entire library is one database |
 | **Excel Export** | Export your entire library to `.xlsx` with one click |
-| **Dark Theme** | Gold and navy palette — easy on the eyes for long reading sessions |
+| **Dark Theme** | Antique-gold accent on a charcoal slate palette — easy on the eyes for long reading sessions |
+| **Opens Maximized** | Detects your screen size on launch and opens windowed full-screen, so you're never stuck with a cramped default window |
 | **System Tray** | Closing the window hides the app to the tray — the API server keeps running in the background |
 | **Browser Extension** | Auto-updates your chapter progress as you read — works even with the window hidden |
 | **Single-File Portable** | Distributes as one standalone `.exe` — no installation required |

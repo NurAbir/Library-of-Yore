@@ -8,7 +8,7 @@ from PyQt6.QtWidgets import (
     QStatusBar, QMenuBar, QMenu, QCheckBox, QGroupBox, QSplitter,
     QSystemTrayIcon, QApplication
 )
-from PyQt6.QtCore import Qt, QThread, pyqtSignal
+from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer
 from PyQt6.QtGui import QAction, QFont, QIcon
 
 from database.connection import test_connection, ensure_indexes
@@ -17,6 +17,7 @@ import api_server
 from ui.setup_wizard import SetupWizard
 from ui.add_novel_dialog import AddNovelDialog
 from ui.novel_card import NovelCard
+from ui import theme
 from config import STATUSES, EXPORTS_DIR, load_config, save_config, get_asset_path
 from utils.helpers import bytes_to_pixmap
 
@@ -122,12 +123,17 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("Library of Yore")
         self.setWindowIcon(QIcon(get_asset_path("logo.ico")))
-        self.resize(1300, 850)
+        self._apply_screen_geometry()
         self.repo = None
-        self.novel_cards = {}  # novel_id -> NovelCard
+        self.novel_cards = {}  # novel_id -> NovelCard, insertion order == display order
         self.current_sort = "last_read"
-        self.grid_view = True
+        self._current_cols = None
         self._force_quit = False  # True only when user picks Quit from tray
+
+        # Debounce grid reflow on window resize so we don't re-layout on every pixel
+        self._reflow_timer = QTimer(self)
+        self._reflow_timer.setSingleShot(True)
+        self._reflow_timer.timeout.connect(self._reflow_grid)
 
         self._check_db_connection()
         self._build_ui()
@@ -135,6 +141,17 @@ class MainWindow(QMainWindow):
         self._setup_tray()
         self._refresh_library()
         self._start_novelfire_refresh()   # auto-fetch latest chapters/status on open
+
+    def _apply_screen_geometry(self):
+        """Detect the screen the app will open on and size the window to fill
+        its available area (windowed full-screen, i.e. maximized — not an
+        exclusive/kiosk fullscreen mode) rather than a hardcoded resolution."""
+        screen = QApplication.primaryScreen()
+        if screen:
+            available = screen.availableGeometry()
+            self.setGeometry(available)
+        # Sensible floor so the layout doesn't break on very small/virtual screens
+        self.setMinimumSize(1000, 650)
 
     def _check_db_connection(self):
         """Verify MongoDB on startup; show wizard if needed."""
@@ -168,9 +185,6 @@ class MainWindow(QMainWindow):
         file_menu.addAction("Exit", self.close)
 
         view_menu = menubar.addMenu("View")
-        view_menu.addAction("Grid View", lambda: self._set_view_mode(True))
-        view_menu.addAction("List View", lambda: self._set_view_mode(False))
-        view_menu.addSeparator()
         view_menu.addAction("Refresh", self._refresh_library)
 
         help_menu = menubar.addMenu("Help")
@@ -188,11 +202,25 @@ class MainWindow(QMainWindow):
 
         # === LEFT SIDEBAR ===
         sidebar = QWidget()
-        sidebar.setMaximumWidth(260)
-        sidebar.setMinimumWidth(200)
+        sidebar.setObjectName("sidebar")
+        sidebar.setMaximumWidth(270)
+        sidebar.setMinimumWidth(220)
         sidebar_layout = QVBoxLayout(sidebar)
-        sidebar_layout.setContentsMargins(12, 12, 12, 12)
-        sidebar_layout.setSpacing(12)
+        sidebar_layout.setContentsMargins(16, 20, 16, 16)
+        sidebar_layout.setSpacing(16)
+
+        # Brand header
+        brand_row = QHBoxLayout()
+        brand_row.setSpacing(10)
+        logo_label = QLabel()
+        logo_pixmap = QIcon(get_asset_path("logo.ico")).pixmap(30, 30)
+        logo_label.setPixmap(logo_pixmap)
+        brand_row.addWidget(logo_label)
+        brand_label = QLabel("Library of Yore")
+        brand_label.setObjectName("sidebarBrand")
+        brand_row.addWidget(brand_label)
+        brand_row.addStretch()
+        sidebar_layout.addLayout(brand_row)
 
         # Search
         search_box = QGroupBox("Search")
@@ -207,10 +235,12 @@ class MainWindow(QMainWindow):
         # Filters
         filter_box = QGroupBox("Filters")
         filter_layout = QVBoxLayout()
+        filter_layout.setSpacing(8)
         self.status_checks = {}
         for status in STATUSES:
             cb = QCheckBox(status.title())
             cb.setChecked(True)
+            cb.setCursor(Qt.CursorShape.PointingHandCursor)
             cb.stateChanged.connect(self._refresh_library)
             self.status_checks[status] = cb
             filter_layout.addWidget(cb)
@@ -233,7 +263,7 @@ class MainWindow(QMainWindow):
 
         # Stats
         self.stats_label = QLabel("0 novels")
-        self.stats_label.setStyleSheet("color: #888; font-size: 11px;")
+        self.stats_label.setObjectName("statsLabel")
         sidebar_layout.addWidget(self.stats_label)
 
         splitter.addWidget(sidebar)
@@ -241,42 +271,39 @@ class MainWindow(QMainWindow):
         # === RIGHT CONTENT ===
         content = QWidget()
         content_layout = QVBoxLayout(content)
-        content_layout.setContentsMargins(16, 16, 16, 16)
-        content_layout.setSpacing(12)
+        content_layout.setContentsMargins(20, 18, 20, 16)
+        content_layout.setSpacing(14)
 
         # Top toolbar
         toolbar = QHBoxLayout()
+        toolbar.setSpacing(10)
 
-        # Logo
-        logo_label = QLabel()
-        logo_path = get_asset_path("logo.ico")
-        logo_pixmap = QIcon(logo_path).pixmap(40, 40)
-        logo_label.setPixmap(logo_pixmap)
-        toolbar.addWidget(logo_label)
-
-        app_name = QLabel("Library of Yore")
-        app_name.setStyleSheet("font-size: 18px; font-weight: bold; color: #d4af37;")
-        toolbar.addWidget(app_name)
-
-        toolbar.addSpacing(20)
-
-        self.add_btn = QPushButton(" Add Novel")
-        self.add_btn.setStyleSheet("padding: 8px 16px; font-weight: bold;")
-        self.add_btn.clicked.connect(self._add_novel)
-        toolbar.addWidget(self.add_btn)
+        page_title = QLabel("My Library")
+        page_title.setStyleSheet(f"font-size: 20px; font-weight: 700; color: {theme.TEXT_PRIMARY};")
+        toolbar.addWidget(page_title)
 
         toolbar.addStretch()
 
-        self.view_toggle_btn = QPushButton("List")
-        self.view_toggle_btn.setCheckable(True)
-        self.view_toggle_btn.clicked.connect(self._toggle_view)
-        toolbar.addWidget(self.view_toggle_btn)
+        self.add_btn = QPushButton("+  Add Novel")
+        self.add_btn.setObjectName("primaryButton")
+        self.add_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.add_btn.setMinimumHeight(36)
+        self.add_btn.clicked.connect(self._add_novel)
+        toolbar.addWidget(self.add_btn)
 
         self.export_btn = QPushButton("Export Excel")
+        self.export_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.export_btn.setMinimumHeight(36)
         self.export_btn.clicked.connect(self._export_excel)
         toolbar.addWidget(self.export_btn)
 
         content_layout.addLayout(toolbar)
+
+        # Thin divider under the toolbar
+        divider = QFrame()
+        divider.setFrameShape(QFrame.Shape.HLine)
+        divider.setStyleSheet(f"color: {theme.BORDER}; max-height: 1px;")
+        content_layout.addWidget(divider)
 
         # Scroll area for novel grid
         self.scroll = QScrollArea()
@@ -286,8 +313,8 @@ class MainWindow(QMainWindow):
 
         self.grid_container = QWidget()
         self.grid_layout = QGridLayout(self.grid_container)
-        self.grid_layout.setSpacing(16)
-        self.grid_layout.setContentsMargins(8, 8, 8, 8)
+        self.grid_layout.setSpacing(18)
+        self.grid_layout.setContentsMargins(4, 12, 4, 12)
         self.grid_layout.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
 
         self.scroll.setWidget(self.grid_container)
@@ -302,61 +329,8 @@ class MainWindow(QMainWindow):
         self.statusbar.showMessage(f"Ready  •  Browser extension API: localhost:{api_server.PORT}")
 
     def _apply_theme(self):
-        """Apply dark theme stylesheet."""
-        self.setStyleSheet("""
-            QMainWindow { background-color: #121212; }
-            QWidget { background-color: #121212; color: #e0e0e0; }
-            QGroupBox {
-                color: #d4af37;
-                font-weight: bold;
-                border: 1px solid #333;
-                border-radius: 6px;
-                margin-top: 10px;
-                padding-top: 8px;
-            }
-            QGroupBox::title { subcontrol-origin: margin; left: 8px; padding: 0 4px; }
-            QLineEdit {
-                background-color: #1e1e1e;
-                color: #eee;
-                border: 1px solid #444;
-                border-radius: 4px;
-                padding: 6px;
-            }
-            QPushButton {
-                background-color: #2a2a2a;
-                color: #eee;
-                border: 1px solid #444;
-                border-radius: 4px;
-                padding: 6px 12px;
-            }
-            QPushButton:hover { background-color: #333; }
-            QComboBox {
-                background-color: #1e1e1e;
-                color: #eee;
-                border: 1px solid #444;
-                border-radius: 4px;
-                padding: 4px;
-            }
-            QCheckBox { color: #ccc; }
-            QCheckBox::indicator { width: 16px; height: 16px; }
-            QScrollBar:vertical {
-                background: #1a1a1a;
-                width: 12px;
-                border-radius: 6px;
-            }
-            QScrollBar::handle:vertical {
-                background: #444;
-                border-radius: 6px;
-                min-height: 30px;
-            }
-            QScrollBar::handle:vertical:hover { background: #555; }
-            QMenuBar { background-color: #1a1a1a; color: #eee; }
-            QMenuBar::item:selected { background-color: #333; }
-            QMenu { background-color: #1a1a1a; color: #eee; border: 1px solid #444; }
-            QMenu::item:selected { background-color: #333; }
-            QStatusBar { background-color: #1a1a1a; color: #888; }
-            QLabel { color: #ccc; }
-        """)
+        """Apply the shared dark theme stylesheet."""
+        self.setStyleSheet(theme.main_window_stylesheet())
 
     def _on_sort_changed(self, text: str):
         mapping = {
@@ -369,18 +343,39 @@ class MainWindow(QMainWindow):
         self.current_sort = mapping.get(text, "last_read")
         self._refresh_library()
 
-    def _set_view_mode(self, grid: bool):
-        self.grid_view = grid
-        self.view_toggle_btn.setText("⊞ Grid" if grid else "List")
-        self._refresh_library()
-
-    def _toggle_view(self):
-        self.grid_view = not self.grid_view
-        self._set_view_mode(self.grid_view)
-
     def _get_active_filters(self):
         statuses = [s for s, cb in self.status_checks.items() if cb.isChecked()]
         return statuses
+
+    def _compute_grid_columns(self) -> int:
+        """How many card columns fit the current scroll viewport width."""
+        card_span = 208 + self.grid_layout.spacing()  # NovelCard fixed width + grid gap
+        viewport_width = self.scroll.viewport().width()
+        if viewport_width <= 0:
+            return 4  # sane fallback before the window has been laid out/shown
+        margins = self.grid_layout.contentsMargins()
+        usable = viewport_width - margins.left() - margins.right()
+        return max(1, usable // card_span)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        # Debounce: only reflow once the user stops dragging/resizing
+        self._reflow_timer.start(120)
+
+    def _reflow_grid(self):
+        """Reposition existing cards into the current column count without
+        re-fetching from the database or rebuilding the widgets."""
+        if not self.novel_cards:
+            return
+        cols = self._compute_grid_columns()
+        if cols == self._current_cols:
+            return
+        self._current_cols = cols
+        for card in self.novel_cards.values():
+            self.grid_layout.removeWidget(card)
+        for i, card in enumerate(self.novel_cards.values()):
+            row, col = divmod(i, cols)
+            self.grid_layout.addWidget(card, row, col)
 
     def _refresh_library(self):
         """Reload and display novels from database."""
@@ -408,14 +403,16 @@ class MainWindow(QMainWindow):
         self.statusbar.showMessage(f"Loaded {len(novels)} novels")
 
         if not novels:
-            empty_label = QLabel("No novels found. Click 'Add Novel' to get started!")
+            empty_label = QLabel("📚\nNo novels found — click \u201c+ Add Novel\u201d to get started!")
+            empty_label.setObjectName("emptyState")
             empty_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            empty_label.setStyleSheet("color: #666; font-size: 16px; margin-top: 50px;")
+            empty_label.setContentsMargins(0, 60, 0, 0)
             self.grid_layout.addWidget(empty_label, 0, 0)
             return
 
         # Populate grid
-        cols = 5 if self.grid_view else 1
+        cols = self._compute_grid_columns()
+        self._current_cols = cols
         for i, novel in enumerate(novels):
             cover_bytes = None
             if novel.cover_image_id:
@@ -567,9 +564,10 @@ class MainWindow(QMainWindow):
         QMessageBox.critical(self, "Export Failed", msg)
 
     def _show_about(self):
+        from config import APP_VERSION
         QMessageBox.about(
             self, "About Library of Yore",
-            "<h2>Library of Yore v1.0</h2>"
+            f"<h2>Library of Yore v{APP_VERSION}</h2>"
             "<p>A desktop bookmark tracker for web novels.</p>"
             "<p>Supports: Webnovel.com, Novelfire.net, NovelPhoenix.com</p>"
             "<p>Built with Python, PyQt6, and MongoDB.</p>"
@@ -602,7 +600,10 @@ class MainWindow(QMainWindow):
         self.tray_icon.show()
 
     def _show_window(self):
-        self.showNormal()
+        if self.isMaximized():
+            self.showMaximized()
+        else:
+            self.showNormal()
         self.raise_()
         self.activateWindow()
 

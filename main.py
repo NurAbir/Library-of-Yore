@@ -26,18 +26,20 @@ def main():
         Qt.HighDpiScaleFactorRoundingPolicy.PassThrough
     )
 
+    from config import APP_VERSION
+
     app = QApplication(sys.argv)
     app.setApplicationName("Library of Yore")
-    app.setApplicationVersion("1.0.0")
+    app.setApplicationVersion(APP_VERSION)
     app.setOrganizationName("LibraryOfYore")
 
     font = QFont("Segoe UI", 10)
     app.setFont(font)
 
     window = MainWindow()
-    window.show()
+    window.showMaximized()
 
-    print("Library of Yore v1.0.0 started successfully.")
+    print(f"Library of Yore v{APP_VERSION} started successfully.")
     sys.exit(app.exec())
 
 

@@ -1,6 +1,6 @@
 # Library of Yore — User Manual
 
-**Version 1.4.0**
+**Version 1.5.0**
 
 A complete guide to installing, using, and troubleshooting Library of Yore — your personal desktop web novel tracker.
 
@@ -208,12 +208,14 @@ The main window has three sections.
 
 | Button | Action |
 |--------|--------|
-| **Add Novel** | Open the Add Novel dialog |
-| **Grid / List** | Toggle between cover grid and compact list view |
+| **+ Add Novel** | Open the Add Novel dialog |
 | **Export Excel** | Save your full library to a `.xlsx` spreadsheet |
-| **Refresh** | Reload novels from the database |
 
-### Novel Cards (Grid View)
+> To manually reload novels from the database, use **View → Refresh** in the menu bar.
+
+### Novel Cards
+
+The library is always shown as a responsive cover grid — the number of columns adapts automatically to your window size, so resizing or maximizing the window rearranges cards rather than clipping them.
 
 Each novel card shows:
 
@@ -498,9 +500,8 @@ Open this file in any text editor to edit manually.
 | `mongo_uri` | `mongodb://localhost:27017` | MongoDB connection string |
 | `db_name` | `libraryofyore` | Database name |
 | `theme` | `dark` | UI colour theme |
-| `window_size` | `[1200, 800]` | Saved window size |
+| `window_size` | `[1200, 800]` | Reserved for future use — the app now detects your screen size on launch and opens maximized automatically, so this value isn't currently read |
 | `default_sort` | `last_read` | Default sort field |
-| `grid_view` | `true` | Start in grid view if true, list view if false |
 
 ### Reset to Defaults
 
@@ -758,6 +759,6 @@ Make sure you replaced `scrapers/novelfire.py` with the v1.3.0 version and rebui
 
 **Happy Reading!**
 
-*Library of Yore v1.4.0*
+*Library of Yore v1.5.0*
 
 </div>
