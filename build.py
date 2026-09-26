@@ -6,13 +6,14 @@ Usage:
     python build.py --clean      # Clean then build
 
 Requirements:
-    pip install pyinstaller
+    pip install -r requirements.txt
     playwright install chromium
 """
 import os
 import sys
 import shutil
 import subprocess
+import importlib
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DIST_DIR = os.path.join(BASE_DIR, "dist")
@@ -27,6 +28,8 @@ COMMON_HIDDEN_IMPORTS = [
     "scrapers.novelupdates",
     "database.connection",
     "database.models",
+    "database.legacy_mongo",
+    "tinydb",
     "pymongo",
     "gridfs",
     "openpyxl",
@@ -35,6 +38,18 @@ COMMON_HIDDEN_IMPORTS = [
     "requests",
     "bs4",
     "dateutil",
+]
+
+# The subset of COMMON_HIDDEN_IMPORTS that come from pip (as opposed to
+# scrapers.*/database.* which are just local source files, always present).
+# --hidden-import only tells PyInstaller to *try* bundling these — if one
+# isn't actually installed, PyInstaller prints a warning and keeps going,
+# producing an exe that builds cleanly but crashes with ModuleNotFoundError
+# the moment it's run. Checking these up front turns that into a build-time
+# error instead of a runtime surprise.
+PIP_HIDDEN_IMPORTS = [
+    "tinydb", "pymongo", "gridfs", "openpyxl", "PIL",
+    "playwright", "requests", "bs4", "dateutil",
 ]
 
 # openpyxl optionally uses numpy/pandas if present, but this app never needs
@@ -68,6 +83,28 @@ def clean():
     print("Cleaned.")
 
 
+def check_dependencies():
+    """Verify every pip-installed hidden-import is actually importable in
+    *this* Python environment before handing off to PyInstaller. Catches the
+    "build succeeded, exe crashes with ModuleNotFoundError" failure mode at
+    build time, with a clear fix, instead of at runtime with a stack trace."""
+    missing = []
+    for name in PIP_HIDDEN_IMPORTS:
+        try:
+            importlib.import_module(name)
+        except ImportError:
+            missing.append(name)
+
+    if missing:
+        print("ERROR: The following packages are required but not installed")
+        print(f"in this Python environment ({sys.executable}):")
+        for name in missing:
+            print(f"  - {name}")
+        print("\nInstall them, then re-run the build:")
+        print("  pip install -r requirements.txt")
+        sys.exit(1)
+
+
 def _base_cmd(onefile=False):
     cmd = [
         sys.executable, "-m", "PyInstaller",
@@ -90,6 +127,7 @@ def _base_cmd(onefile=False):
 
 def build():
     """Run PyInstaller to create standalone single-file executable."""
+    check_dependencies()
     cmd = _base_cmd(onefile=True)
     print("Running PyInstaller (single-file mode)...")
     print(" ".join(cmd))
@@ -103,6 +141,7 @@ def build():
 
 def build_folder():
     """Alternative: build as folder (faster startup, easier to debug)."""
+    check_dependencies()
     cmd = _base_cmd(onefile=False)
     print("Running PyInstaller (folder mode)...")
     print(" ".join(cmd))

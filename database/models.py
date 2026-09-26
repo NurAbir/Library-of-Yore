@@ -1,13 +1,33 @@
-"""Novel data model and repository pattern."""
+"""Novel data model and repository pattern (local JSON storage, since v2.0)."""
 import datetime
-from dataclasses import dataclass, field, asdict
+import uuid
+from dataclasses import dataclass, field
 from typing import Optional, List
-from bson import ObjectId
-from gridfs import GridFS
-from pymongo import DESCENDING, ASCENDING
 
-from database.connection import get_db, get_client
-from config import DEFAULT_DB_NAME, GRIDFS_BUCKET
+from tinydb import Query
+
+from database.connection import get_db, get_write_lock, backup_library_file
+from config import COVERS_DIR
+
+
+def _dt_to_str(dt: Optional[datetime.datetime]) -> Optional[str]:
+    """JSON has no datetime type, so dates are stored as ISO-8601 strings."""
+    if dt is None:
+        return None
+    if isinstance(dt, str):  # already serialized (e.g. re-saving a loaded doc)
+        return dt
+    return dt.isoformat()
+
+
+def _str_to_dt(s) -> Optional[datetime.datetime]:
+    if not s:
+        return None
+    if isinstance(s, datetime.datetime):
+        return s
+    try:
+        return datetime.datetime.fromisoformat(s)
+    except (TypeError, ValueError):
+        return None
 
 
 @dataclass
@@ -17,7 +37,7 @@ class Novel:
     author: str = ""
     source_name: str = "manual"          # webnovel, novelfire, manual
     source_url: str = ""
-    cover_image_id: Optional[str] = None # GridFS file_id as string
+    cover_image_id: Optional[str] = None # local cover filename under config.COVERS_DIR
     cover_url: str = ""                  # Original URL for re-fetch
     current_chapter: int = 0
     total_chapters: Optional[int] = None
@@ -45,26 +65,17 @@ class Novel:
             return self.current_chapter >= self.total_chapters
         return False
 
-    def to_dict(self) -> dict:
-        """Convert to MongoDB-compatible dict."""
-        d = asdict(self)
-        d.pop("_id")
-        if self._id:
-            d["_id"] = ObjectId(self._id)
-        return d
-
     @classmethod
     def from_dict(cls, data: dict) -> "Novel":
-        """Create Novel from MongoDB document."""
+        """Create a Novel from a stored document (see NovelRepository._to_doc
+        for the shape). Nested sections are flattened back onto the dataclass
+        and ISO date strings are parsed back into datetimes."""
         data = dict(data)  # copy
-        if "_id" in data:
-            data["_id"] = str(data["_id"])
-        # Map nested fields back to flat dataclass
         if "source" in data:
             src = data.pop("source")
             data["source_name"] = src.get("name", "manual")
             data["source_url"] = src.get("url", "")
-            data["last_scraped"] = src.get("last_scraped")
+            data["last_scraped"] = _str_to_dt(src.get("last_scraped"))
             data["scrape_error"] = src.get("scrape_error")
         if "progress" in data:
             prog = data.pop("progress")
@@ -78,37 +89,40 @@ class Novel:
             data["synopsis"] = meta.get("synopsis", "")
         if "history" in data:
             hist = data.pop("history")
-            data["date_added"] = hist.get("date_added", datetime.datetime.utcnow())
-            data["last_read"] = hist.get("last_read")
+            data["date_added"] = _str_to_dt(hist.get("date_added")) or datetime.datetime.utcnow()
+            data["last_read"] = _str_to_dt(hist.get("last_read"))
             data["read_count"] = hist.get("read_count", 0)
         if "cover_image" in data:
             cov = data.pop("cover_image")
-            data["cover_image_id"] = cov.get("gridfs_id")
+            data["cover_image_id"] = cov.get("file")
             data["cover_url"] = cov.get("url", "")
         return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
 
 
 class NovelRepository:
-    """CRUD and query operations for Novels."""
+    """CRUD and query operations for Novels, backed by a local JSON file
+    (TinyDB) with cover images stored as plain files on disk."""
 
     def __init__(self):
         self.db = get_db()
-        self.collection = self.db["novels"]
-        self.fs = GridFS(self.db, collection=GRIDFS_BUCKET)
+        self.table = self.db.table("novels")
 
     def _to_doc(self, novel: Novel) -> dict:
-        """Serialize Novel to MongoDB document with nested structure."""
+        """Serialize a Novel to the stored document shape. Kept nested
+        (source/progress/metadata/history/cover_image) for readability of the
+        underlying JSON file and for continuity with earlier versions."""
         return {
+            "_id": novel._id,
             "title": novel.title,
             "author": novel.author,
             "source": {
                 "name": novel.source_name,
                 "url": novel.source_url,
-                "last_scraped": novel.last_scraped,
+                "last_scraped": _dt_to_str(novel.last_scraped),
                 "scrape_error": novel.scrape_error,
             },
             "cover_image": {
-                "gridfs_id": novel.cover_image_id,
+                "file": novel.cover_image_id,
                 "url": novel.cover_url,
             },
             "progress": {
@@ -124,99 +138,119 @@ class NovelRepository:
                 "synopsis": novel.synopsis,
             },
             "history": {
-                "date_added": novel.date_added,
-                "last_read": novel.last_read,
+                "date_added": _dt_to_str(novel.date_added),
+                "last_read": _dt_to_str(novel.last_read),
                 "read_count": novel.read_count,
             },
             "notes": novel.notes,
         }
 
     def insert(self, novel: Novel) -> str:
-        """Insert a new novel. Returns inserted ID."""
+        """Insert a new novel. Returns the new (or preserved) id."""
+        if not novel._id:
+            novel._id = uuid.uuid4().hex
         doc = self._to_doc(novel)
-        result = self.collection.insert_one(doc)
-        return str(result.inserted_id)
+        with get_write_lock():
+            backup_library_file()
+            self.table.insert(doc)
+        return novel._id
 
     def update(self, novel: Novel) -> bool:
         """Update existing novel by _id."""
         if not novel._id:
             return False
+        novel.last_read = datetime.datetime.utcnow()
         doc = self._to_doc(novel)
-        doc["history"]["last_read"] = datetime.datetime.utcnow()
-        result = self.collection.update_one(
-            {"_id": ObjectId(novel._id)}, {"$set": doc}
-        )
-        return result.modified_count > 0
+        with get_write_lock():
+            backup_library_file()
+            updated = self.table.update(doc, Query()._id == novel._id)
+        return len(updated) > 0
 
     def delete(self, novel_id: str) -> bool:
-        """Delete novel and its cover from GridFS."""
+        """Delete a novel and its cover file, if any."""
         novel = self.get_by_id(novel_id)
         if novel and novel.cover_image_id:
-            try:
-                self.fs.delete(ObjectId(novel.cover_image_id))
-            except Exception:
-                pass
-        result = self.collection.delete_one({"_id": ObjectId(novel_id)})
-        return result.deleted_count > 0
+            self.delete_cover(novel.cover_image_id)
+        with get_write_lock():
+            backup_library_file()
+            removed = self.table.remove(Query()._id == novel_id)
+        return len(removed) > 0
 
     def get_by_id(self, novel_id: str) -> Optional[Novel]:
-        data = self.collection.find_one({"_id": ObjectId(novel_id)})
-        return Novel.from_dict(data) if data else None
+        doc = self.table.get(Query()._id == novel_id)
+        return Novel.from_dict(doc) if doc else None
 
     def get_all(self, status_filter: Optional[List[str]] = None,
                 genre_filter: Optional[List[str]] = None,
                 search_text: str = "",
                 sort_by: str = "last_read",
                 sort_order: str = "desc") -> List[Novel]:
-        """Query novels with filters and sorting."""
-        query = {}
+        """Query novels with filters and sorting (done in-process over the
+        loaded list — plenty fast for a personal library's scale)."""
+        novels = [Novel.from_dict(d) for d in self.table.all()]
+
         if status_filter:
-            query["progress.status"] = {"$in": status_filter}
+            novels = [n for n in novels if n.status in status_filter]
         if genre_filter:
-            query["metadata.genres"] = {"$in": genre_filter}
+            novels = [n for n in novels if any(g in n.genres for g in genre_filter)]
         if search_text:
-            query["$or"] = [
-                {"title": {"$regex": search_text, "$options": "i"}},
-                {"author": {"$regex": search_text, "$options": "i"}},
-                {"notes": {"$regex": search_text, "$options": "i"}},
+            needle = search_text.lower()
+            novels = [
+                n for n in novels
+                if needle in n.title.lower()
+                or needle in n.author.lower()
+                or needle in n.notes.lower()
             ]
 
-        sort_field_map = {
-            "last_read": "history.last_read",
-            "title": "title",
-            "rating": "metadata.rating",
-            "date_added": "history.date_added",
-            "percent_complete": "progress.percent_complete",
+        min_dt = datetime.datetime.min
+        sort_key_map = {
+            "last_read": lambda n: n.last_read or min_dt,
+            "title": lambda n: n.title.lower(),
+            "rating": lambda n: n.rating,
+            "date_added": lambda n: n.date_added or min_dt,
+            "percent_complete": lambda n: n.percent_complete,
         }
-        sort_field = sort_field_map.get(sort_by, "history.last_read")
-        direction = DESCENDING if sort_order == "desc" else ASCENDING
+        key_fn = sort_key_map.get(sort_by, sort_key_map["last_read"])
+        novels.sort(key=key_fn, reverse=(sort_order == "desc"))
+        return novels
 
-        cursor = self.collection.find(query).sort(sort_field, direction)
-        return [Novel.from_dict(d) for d in cursor]
-
-    def save_cover(self, image_bytes: bytes, filename: str, content_type: str = "image/jpeg") -> str:
-        """Save cover image to GridFS. Returns file_id string."""
-        file_id = self.fs.put(image_bytes, filename=filename, content_type=content_type)
-        return str(file_id)
+    def save_cover(self, image_bytes: bytes, filename: str = "", content_type: str = "image/jpeg") -> str:
+        """Save a cover image as a local file. Returns its filename (used as
+        the id passed around as Novel.cover_image_id)."""
+        cover_id = f"{uuid.uuid4().hex}.jpg"
+        (COVERS_DIR / cover_id).write_bytes(image_bytes)
+        return cover_id
 
     def get_cover(self, file_id: str) -> Optional[bytes]:
-        """Retrieve cover image bytes from GridFS."""
+        """Retrieve cover image bytes from the covers folder."""
+        path = COVERS_DIR / file_id
         try:
-            return self.fs.get(ObjectId(file_id)).read()
+            return path.read_bytes() if path.exists() else None
         except Exception:
             return None
 
+    def delete_cover(self, file_id: str) -> None:
+        """Remove a cover image file. Safe to call even if it's already gone."""
+        try:
+            path = COVERS_DIR / file_id
+            if path.exists():
+                path.unlink()
+        except Exception:
+            pass
+
     def update_chapter_progress(self, novel_id: str, new_chapter: int, increment_read: bool = True):
         """Quick update for chapter progress."""
-        update_doc = {
-            "$set": {
-                "progress.current_chapter": new_chapter,
-                "history.last_read": datetime.datetime.utcnow(),
-            }
-        }
-        if increment_read:
-            update_doc["$inc"] = {"history.read_count": 1}
-        self.collection.update_one({"_id": ObjectId(novel_id)}, update_doc)
+        with get_write_lock():
+            doc = self.table.get(Query()._id == novel_id)
+            if not doc:
+                return
+            backup_library_file()
+            doc.setdefault("progress", {})["current_chapter"] = new_chapter
+            history = doc.setdefault("history", {})
+            history["last_read"] = _dt_to_str(datetime.datetime.utcnow())
+            if increment_read:
+                history["read_count"] = history.get("read_count", 0) + 1
+            self.table.update(doc, Query()._id == novel_id)
 
     def export_to_list(self) -> List[dict]:
         """Export all novels as flat dicts for spreadsheet."""

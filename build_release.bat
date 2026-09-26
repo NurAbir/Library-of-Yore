@@ -62,6 +62,8 @@ python -m PyInstaller ^
     --hidden-import scrapers.novelupdates ^
     --hidden-import database.connection ^
     --hidden-import database.models ^
+    --hidden-import database.legacy_mongo ^
+    --hidden-import tinydb ^
     --hidden-import pymongo ^
     --hidden-import gridfs ^
     --hidden-import openpyxl ^

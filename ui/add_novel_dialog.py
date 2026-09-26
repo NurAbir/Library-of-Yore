@@ -473,10 +473,7 @@ class AddNovelDialog(QDialog):
 
         if self.cover_image_bytes:
             if self.is_edit and self.novel.cover_image_id:
-                try:
-                    self.repo.fs.delete(self.novel.cover_image_id)
-                except Exception:
-                    pass
+                self.repo.delete_cover(self.novel.cover_image_id)
             cover_id = self.repo.save_cover(self.cover_image_bytes, title + ".jpg")
             novel.cover_image_id = cover_id
 

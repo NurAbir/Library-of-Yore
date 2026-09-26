@@ -6,7 +6,7 @@ from pathlib import Path
 
 APP_NAME = "LibraryOfYore"
 DISPLAY_NAME = "Library of Yore"
-APP_VERSION = "1.5.0"
+APP_VERSION = "2.0.0"
 
 # Paths
 APP_DATA_DIR = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData/Local")) / APP_NAME
@@ -20,12 +20,23 @@ LOGS_DIR.mkdir(exist_ok=True)
 
 CONFIG_FILE = APP_DATA_DIR / "config.json"
 
-# MongoDB defaults
-DEFAULT_MONGO_URI = "mongodb://localhost:27017"
-DEFAULT_DB_NAME = "libraryofyore"
+# ── Local library storage (since v2.0) ───────────────────────────────────────
+# Replaces MongoDB: novels live in one JSON file, covers live in a folder next
+# to it. No server, no separate install, no service to keep running.
+LIBRARY_FILE = APP_DATA_DIR / "library.json"
+LIBRARY_BACKUP_FILE = APP_DATA_DIR / "library.json.bak"
 
-# GridFS bucket name for covers
-GRIDFS_BUCKET = "covers"
+COVERS_DIR = APP_DATA_DIR / "covers"
+COVERS_DIR.mkdir(exist_ok=True)
+
+# ── Legacy MongoDB settings (pre-2.0 only) ───────────────────────────────────
+# Used solely by database/legacy_mongo.py to detect and one-time-import a
+# library created by a version of Library of Yore before 2.0. Nothing else in
+# the app touches these, and a machine with no MongoDB installed is completely
+# unaffected by their presence here.
+LEGACY_MONGO_URI = "mongodb://localhost:27017"
+LEGACY_DB_NAME = "libraryofyore"
+LEGACY_GRIDFS_BUCKET = "covers"
 
 # Scraping
 SCRAPER_CACHE_DURATION_HOURS = 24
@@ -47,8 +58,6 @@ STATUSES = ["ongoing", "completed", "hiatus", "dropped", "planned"]
 def load_config():
     """Load user config from JSON."""
     defaults = {
-        "mongo_uri": DEFAULT_MONGO_URI,
-        "db_name": DEFAULT_DB_NAME,
         "theme": "dark",
         "window_size": [1200, 800],
         "default_sort": "last_read",

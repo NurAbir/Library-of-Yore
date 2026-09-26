@@ -1,6 +1,6 @@
 # Library of Yore — User Manual
 
-**Version 1.5.0**
+**Version 2.0.0**
 
 A complete guide to installing, using, and troubleshooting Library of Yore — your personal desktop web novel tracker.
 
@@ -9,9 +9,9 @@ A complete guide to installing, using, and troubleshooting Library of Yore — y
 ## Table of Contents
 
 1. [System Requirements](#1-system-requirements)
-2. [Installing MongoDB](#2-installing-mongodb)
+2. [Data Storage](#2-data-storage)
 3. [Installing Library of Yore](#3-installing-library-of-yore)
-4. [First Launch & Setup Wizard](#4-first-launch--setup-wizard)
+4. [First Launch & Import Wizard](#4-first-launch--import-wizard)
 5. [Adding a Novel](#5-adding-a-novel)
 6. [The Main Library](#6-the-main-library)
 7. [Editing a Novel](#7-editing-a-novel)
@@ -38,43 +38,31 @@ A complete guide to installing, using, and troubleshooting Library of Yore — y
 | **RAM** | 4 GB (8 GB recommended) |
 | **Storage** | 200 MB for the app + space for cover images |
 | **Internet** | Required for scraping metadata and downloading covers |
-| **Database** | MongoDB Community Server (free, separate install) |
+| **Database** | None — your library is stored locally in a JSON file, no separate install |
 | **Browser** | Chrome, Edge, Brave, or Firefox (for the browser extension) |
 
 Python is **not** required to run the portable `.exe` or the installer build.
 
 ---
 
-## 2. Installing MongoDB
+## 2. Data Storage
 
-Library of Yore uses MongoDB as its local database. Your data never leaves your machine.
+Library of Yore stores your entire library locally on your machine — no database server to install, start, or keep running. Since v2.0 this replaces the MongoDB-based storage earlier versions used.
 
-### Steps
+### Where Your Data Lives
 
-1. Go to: https://www.mongodb.com/try/download/community
-2. Download the **MongoDB Community Server MSI** for Windows
-3. Run the installer
-4. On the **Service Configuration** screen, check **"Install MongoDB as a Service"**
-   - This makes MongoDB start automatically every time Windows boots
-5. Complete the installation
-
-### Verify MongoDB is Running
-
-Open Command Prompt as Administrator and run:
-
-```cmd
-net start MongoDB
+```
+%LOCALAPPDATA%\LibraryOfYore\
+├── library.json        ← all novel metadata and reading history
+├── library.json.bak     ← automatic snapshot written before every save
+├── covers\              ← one cover image file per novel
+├── config.json          ← app settings (see Section 14)
+└── exports\             ← Excel exports land here by default
 ```
 
-| Response | Meaning |
-|----------|---------|
-| `The MongoDB Server service is starting` | Starting now — wait a moment |
-| `The requested service has already been started` | Already running — you're good |
-| `The service name is invalid` | MongoDB is not installed as a service — reinstall and check the Service option |
+### Upgrading from Before 2.0?
 
-### If You Need a Custom Port
-
-By default MongoDB runs on port `27017`. If you need a different port, update the connection string in Settings after launch (see [Section 14](#14-settings--configuration)).
+If you previously used Library of Yore with MongoDB, nothing is lost. On first launch, the app checks for an existing MongoDB library and — if it finds one — offers to import every novel and cover image into the new local format. See [Section 4](#4-first-launch--import-wizard).
 
 ---
 
@@ -100,27 +88,24 @@ If the app crashes silently on startup, look for a file called `crash_log.txt` i
 
 ---
 
-## 4. First Launch & Setup Wizard
+## 4. First Launch & Import Wizard
 
-On the very first launch, Library of Yore checks for MongoDB at `localhost:27017`.
+On the very first launch, Library of Yore checks whether a local library file (`library.json`) already exists.
 
-### If MongoDB is Found
+### Typical Case — Fresh Install, No Previous MongoDB Library
 
-The main window opens immediately and Novelfire and NovelPhoenix novels begin auto-refreshing in the background (see [Section 9](#9-auto-refresh-on-startup)). Skip ahead to [Section 5](#5-adding-a-novel).
+The main window opens immediately with an empty library, and Novelfire and NovelPhoenix novels (once you've added some) begin auto-refreshing in the background on future launches (see [Section 9](#9-auto-refresh-on-startup)). Skip ahead to [Section 5](#5-adding-a-novel).
 
-### If MongoDB is Not Found
+### If an Existing MongoDB Library Is Found
 
-The **Setup Wizard** appears. It offers the following actions:
+If no local library exists yet, the app briefly checks `localhost:27017` for a pre-2.0 MongoDB library. If one is found, the **Import Wizard** appears:
 
 | Button | What It Does |
 |--------|--------------|
-| **Download MongoDB** | Opens the official MongoDB download page in your browser |
-| **Start MongoDB Service** | Tries to start the MongoDB Windows service right now |
-| **Retry Connection** | Tests the connection again after you've started MongoDB |
-| **Change URI** | Edit the connection string (useful for non-default ports or remote hosts) |
-| **Continue** | Proceed once the connection test passes |
+| **Import Now →** | Copies every novel and cover image from MongoDB into your new local library, with progress shown live |
+| **Skip — Start Fresh** | Closes the wizard and starts with an empty local library instead |
 
-**Common fix:** Click **Start MongoDB Service**, wait 5 seconds, then click **Retry Connection**.
+This check only happens once — after your local library exists (even if you skipped), the app never probes MongoDB automatically again. If you skipped by mistake and haven't added any novels yet, you can trigger the same import at any time from **File → Import Existing MongoDB Library…**.
 
 ---
 
@@ -184,7 +169,7 @@ Use this when a site isn't supported or scraping fails.
 | **From URL** | Click **Download from URL** and paste a direct image link |
 | **Clear** | Click **Clear Cover** to remove the current image |
 
-All covers are stored inside MongoDB (GridFS) — they travel with your database backup.
+All covers are saved as local files in your `covers\` folder (see [Section 2](#2-data-storage)) — they travel along whenever you back up the `%LOCALAPPDATA%\LibraryOfYore\` folder.
 
 ### Keyboard Behaviour in the Add Novel Dialog
 
@@ -257,7 +242,7 @@ Each novel card shows:
    - Title, author, synopsis
 4. Click **Save Novel**
 
-To delete a novel: right-click its card → **Delete**. This also removes its cover image from GridFS.
+To delete a novel: right-click its card → **Delete**. This also removes its cover image file from the `covers\` folder.
 
 ---
 
@@ -405,7 +390,7 @@ The first time you close the window, a notification balloon appears:
 | **Single-click** the tray icon | Reopens the main window |
 | **Double-click** the tray icon | Reopens the main window |
 | **Right-click → Open Library** | Reopens the main window |
-| **Right-click → Quit** | Fully exits the app, stops the API server, and closes the MongoDB connection |
+| **Right-click → Quit** | Fully exits the app, stops the API server, and flushes the local library file |
 
 ### Fully Quitting
 
@@ -476,7 +461,7 @@ Click **Export Excel** in the toolbar. Choose a save location. The file opens in
 
 ### Uses
 
-- Human-readable backup outside MongoDB
+- Human-readable backup alongside your local library file
 - Share your reading list
 - Analyse your reading history in Excel/Sheets
 - Reference when setting up on a new machine
@@ -497,8 +482,6 @@ Open this file in any text editor to edit manually.
 
 | Key | Default | Description |
 |-----|---------|-------------|
-| `mongo_uri` | `mongodb://localhost:27017` | MongoDB connection string |
-| `db_name` | `libraryofyore` | Database name |
 | `theme` | `dark` | UI colour theme |
 | `window_size` | `[1200, 800]` | Reserved for future use — the app now detects your screen size on launch and opens maximized automatically, so this value isn't currently read |
 | `default_sort` | `last_read` | Default sort field |
@@ -511,27 +494,30 @@ Delete `config.json` and restart the app. It recreates the file with all default
 
 ## 15. Data Backup & Migration
 
-### Full Backup (MongoDB Dump)
+### Full Backup
 
-```cmd
-mongodump --db libraryofyore --out C:\Backup\LibraryOfYore
+Copy the entire folder:
+
+```
+%LOCALAPPDATA%\LibraryOfYore\
 ```
 
-This backs up all novels **and** all cover images stored in GridFS.
+This includes `library.json` (all novel metadata and reading history) and the `covers\` folder (every cover image).
 
 ### Restore
 
-```cmd
-mongorestore --db libraryofyore C:\Backup\LibraryOfYore\libraryofyore
-```
+Copy that same folder back to `%LOCALAPPDATA%\LibraryOfYore\` — on the same PC or a new one — and launch Library of Yore.
 
 ### Moving to Another PC
 
-1. On the old PC: run `mongodump` as above
-2. On the new PC: install MongoDB and Library of Yore
-3. Copy the dump folder to the new PC
-4. Run `mongorestore`
-5. Launch Library of Yore — your full library appears
+1. On the old PC: copy the `%LOCALAPPDATA%\LibraryOfYore\` folder to a USB drive or cloud folder
+2. On the new PC: install Library of Yore
+3. Copy the folder to `%LOCALAPPDATA%\LibraryOfYore\` on the new PC (overwriting the empty one created on first launch)
+4. Launch Library of Yore — your full library appears
+
+### Upgrading from a Pre-2.0 (MongoDB) Install
+
+You don't need to do this manually — see [Section 4](#4-first-launch--import-wizard). If you skipped the import and want to run it again, use **File → Import Existing MongoDB Library…** from the menu bar (as long as MongoDB is still installed and running).
 
 ### Lightweight Backup (Excel)
 
@@ -595,25 +581,28 @@ If double-clicking the `.exe` does nothing or the window flashes and disappears:
 |------------------------|-----|
 | `ModuleNotFoundError` | Rebuild with the latest `build.bat` (v1.0.1+) |
 | `AttributeError: module 'numpy' has no attribute 'short'` | Rebuild with v1.4.0+ — `numpy`/`pandas`/`matplotlib` are now excluded from the build since they're unused and PyInstaller was bundling numpy incompletely |
-| `Cannot connect to MongoDB` | Start MongoDB service (see below) |
+| `PermissionError` / `FileNotFoundError` on `library.json` | Make sure `%LOCALAPPDATA%\LibraryOfYore\` isn't read-only or synced by a tool that locks files (see below) |
 | `FileNotFoundError: assets/logo.ico` | Make sure the `assets/` folder is present when building |
 | Qt platform plugin error | Reinstall from a fresh build |
 
-### Cannot Connect to MongoDB
+### Library File Won't Load / Looks Corrupted
 
-**Symptom:** Setup Wizard appears every launch, or "Cannot reach MongoDB server."
+**Symptom:** The app opens with an empty library even though you know you've added novels, or crashes right after opening.
 
-```cmd
-REM Open Command Prompt as Administrator, then:
-net start MongoDB
-```
+1. Close Library of Yore completely (right-click the tray icon → Quit)
+2. Go to `%LOCALAPPDATA%\LibraryOfYore\`
+3. Rename `library.json` to `library.json.broken` (so you don't lose it)
+4. Rename `library.json.bak` to `library.json` — this is the automatic snapshot taken before your last save
+5. Relaunch Library of Yore
 
-If the service doesn't exist:
-- Reinstall MongoDB and enable "Install as a Service"
+If a cloud-sync tool (OneDrive, Dropbox, etc.) is set to sync `%LOCALAPPDATA%`, it can occasionally lock the file mid-write — excluding that folder from sync avoids this.
 
-If using a non-default port:
-- Edit `%LOCALAPPDATA%\LibraryOfYore\config.json`
-- Change `mongo_uri` to your actual URI, e.g. `mongodb://localhost:27018`
+### Existing MongoDB Library Not Detected
+
+**Symptom:** You upgraded from a pre-2.0 version, but the Import Wizard never appeared.
+
+- The check only looks at `localhost:27017` (or a custom URI saved in an old `config.json`) — make sure MongoDB is installed **and running** the first time you launch 2.0
+- The automatic check only runs once, before `library.json` exists. If you already have an (empty) local library, use **File → Import Existing MongoDB Library…** instead
 
 ### Extension Shows "Disconnected"
 
@@ -715,13 +704,13 @@ Update to **v1.3.0** — earlier versions had Qt's `autoDefault` button behaviou
 ## 19. FAQ
 
 **Q: Is my data stored online or shared with anyone?**
-No. Everything is stored locally in MongoDB on your own machine. There are no accounts, no cloud sync, and no telemetry.
+No. Everything is stored locally in a JSON file on your own machine. There are no accounts, no cloud sync, and no telemetry.
 
 **Q: Can I run this on macOS or Linux?**
 The source code is cross-platform Python, so `python main.py` works on any OS after installing dependencies. However, the `.bat` build scripts and installer are Windows-only. Mac/Linux users would build manually with `pyinstaller` directly.
 
 **Q: How many novels can I store?**
-MongoDB handles tens of millions of documents with ease. Your practical limit is disk space for cover images.
+Comfortably into the thousands — a personal reading list is tiny by JSON-file standards. Your practical limit is disk space for cover images.
 
 **Q: The exe is slow to open. Is something wrong?**
 No — this is expected on the first launch of the single-file build. PyInstaller unpacks itself to `%TEMP%`. It's faster from the second launch onward. Use `python build.py --folder` for a faster-starting folder build if you prefer.
@@ -733,7 +722,7 @@ Yes. See [Section 16 — Adding a New Scraper](#adding-a-new-scraper).
 Webnovel uses Cloudflare and JavaScript-heavy anti-bot protection that makes reliable scraping impossible without constant maintenance.
 
 **Q: How do I back up my library?**
-Use `mongodump` for a complete backup (includes covers), or **Export Excel** from the toolbar for a human-readable reference copy. See [Section 15](#15-data-backup--migration).
+Copy the `%LOCALAPPDATA%\LibraryOfYore\` folder for a complete backup (includes covers), or use **Export Excel** from the toolbar for a human-readable reference copy. See [Section 15](#15-data-backup--migration).
 
 **Q: Can I edit the config file directly?**
 Yes. `%LOCALAPPDATA%\LibraryOfYore\config.json` is plain JSON. Edit with any text editor. Delete it to reset all settings to defaults.
@@ -759,6 +748,6 @@ Make sure you replaced `scrapers/novelfire.py` with the v1.3.0 version and rebui
 
 **Happy Reading!**
 
-*Library of Yore v1.5.0*
+*Library of Yore v2.0.0*
 
 </div>

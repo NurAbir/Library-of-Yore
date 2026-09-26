@@ -2,6 +2,29 @@
 
 All notable changes to Library of Yore.
 
+## [2.0.0] - 2026-09-26
+
+### Removed
+- **MongoDB dependency.** The app no longer requires an external database server of any kind.
+
+### Added
+- **Local JSON storage.** Novels now live in `library.json` inside the app's data folder (`%LOCALAPPDATA%\LibraryOfYore\`), backed by TinyDB — same "insert/query a dict" model as before, just without a server to install or keep running. A `library.json.bak` snapshot is written before every save as a crash safety net.
+- **Local cover images.** Cover files are now saved directly under a `covers\` folder next to `library.json`, instead of MongoDB's GridFS.
+- **One-time MongoDB import.** On first launch, if a pre-2.0 MongoDB library is detected on the machine, an import wizard offers to copy every novel and cover image into the new local store before you continue — skippable, and safe to leave MongoDB uninstalled afterward. Also available any time from **File → Import Existing MongoDB Library…**.
+- **New app logo/icon** — `assets/logo.png` and `assets/logo.ico` replaced with a new circular emblem (open book + archway design); the `.ico` was regenerated at the same six sizes as before (16/32/48/64/128/256) so the taskbar, window, and installer icons stay crisp.
+
+### Changed
+- `database/connection.py` and `database/models.py` rewritten around TinyDB + local cover files; `NovelRepository`'s public methods (`insert`, `update`, `delete`, `get_by_id`, `get_all`, `save_cover`, `get_cover`, `update_chapter_progress`, `export_to_list`) keep the same signatures, so the API server, Add/Edit dialog, and novel cards needed no changes.
+- The first-run **Setup Wizard** is now an **Import Wizard** (`ui/setup_wizard.py`) — it no longer asks anyone to install or start anything; it only appears when an old MongoDB library is actually found.
+- `requirements.txt` / `build.py` / `build.bat` / `build_release.bat`: added `tinydb`. `pymongo` and `gridfs` are kept for now, solely to power the one-time legacy import inside the built `.exe`.
+- Version bumped to **2.0.0** (major bump reflecting the storage-engine change) across `config.py`, `installer.iss`, and the browser extension's `manifest.json`.
+
+### Fixed
+- Deleting a novel's cover image when replacing it in the Add/Edit dialog previously reached directly into the database layer (`self.repo.fs.delete(...)`) with a raw string id, which GridFS silently rejected. Replaced with a proper `NovelRepository.delete_cover()` method that actually removes the file.
+- `library.json` writes now explicitly use UTF-8 (`database/connection.py`). Without this, TinyDB opens the file using the OS's default locale encoding — a legacy codepage like `cp1252` on many Windows machines — which cannot represent many characters that real scraped novel titles/authors/synopses contain (CJK, accented letters, smart quotes, emoji), crashing with `'charmap' codec can't encode character...`. This affected both normal saves and the MongoDB import wizard.
+- An unreadable `library.json` (most commonly a file saved by a build with the encoding bug above, still holding raw `cp1252` bytes on Windows) no longer hard-crashes the app on every launch, and no longer requires re-importing from MongoDB either: startup now re-decodes it as `cp1252` and, if that parses cleanly, repairs it in place as proper UTF-8 — the exact same novels, losslessly. Only if that isn't possible does it fall back to the automatic `.bak` snapshot (repairing that the same way if needed), and only as a last resort does it quarantine the file as `library.json.broken-<timestamp>` so the app can at least start. The quarantine step also no longer claims success if the move itself fails (e.g. a locked file) — it now says so plainly instead.
+- `ui/__init__.py` still imported the old `SetupWizard` name after it was renamed to `ImportWizard` — fixed.
+
 ## [1.5.0] - 2026-07-20
 
 ### Added

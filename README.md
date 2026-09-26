@@ -6,13 +6,13 @@
 
 **A desktop bookmark tracker for web novels.**
 
-Built with Python, PyQt6, and MongoDB.
+Built with Python and PyQt6 — stored locally, no database server required.
 
 [![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://python.org)
 [![PyQt6](https://img.shields.io/badge/PyQt6-6.4+-green.svg)](https://riverbankcomputing.com/software/pyqt)
-[![MongoDB](https://img.shields.io/badge/MongoDB-Community-brightgreen.svg)](https://mongodb.com)
+[![Storage](https://img.shields.io/badge/Storage-Local%20JSON-lightgrey.svg)]()
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-1.5.0-orange.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/Version-2.0.0-orange.svg)](CHANGELOG.md)
 
 </div>
 
@@ -39,7 +39,7 @@ Supports **Novelfire**, **NovelPhoenix**, **Wuxiaworld**, **FreeWebNovel**, and 
 | **Chapter Tracking** | Track current chapter, total chapters, and completion percentage |
 | **Status Management** | Ongoing, Completed, Hiatus, Dropped, Planned |
 | **Search & Filter** | Filter by status, search by title/author/notes, sort by last read / rating / progress |
-| **Cover Storage** | Images stored in MongoDB GridFS — your entire library is one database |
+| **Cover Storage** | Images stored as local files — your entire library lives in one JSON file plus a covers folder, no server required |
 | **Excel Export** | Export your entire library to `.xlsx` with one click |
 | **Dark Theme** | Antique-gold accent on a charcoal slate palette — easy on the eyes for long reading sessions |
 | **Opens Maximized** | Detects your screen size on launch and opens windowed full-screen, so you're never stuck with a cramped default window |
@@ -72,7 +72,7 @@ The **Library of Yore Browser Extension** detects which chapter you are reading 
 1. Library of Yore runs a small local API server on `localhost:7337`
 2. The extension watches the current tab URL and detects chapter numbers
 3. When you advance to a new chapter it sends the update to the app
-4. The app writes it to MongoDB and refreshes the card — even if the main window is hidden
+4. The app writes it to your local library file and refreshes the card — even if the main window is hidden
 
 ### Background Tracking (System Tray)
 
@@ -109,21 +109,15 @@ A notification balloon appears the first time you close the window to let you kn
 ## Requirements
 
 - **Windows 10/11**
-- **MongoDB Community Server** (separate install — see [Quick Start](#quick-start))
 - **Python 3.10+** (development only — not needed to run the `.exe`)
+
+No database server to install — everything is stored locally in a JSON file.
 
 ---
 
 ## Quick Start
 
-### 1. Install MongoDB
-
-Download and install MongoDB Community Server:
-https://www.mongodb.com/try/download/community
-
-During install, choose **"Install MongoDB as a Service"** so it starts automatically with Windows.
-
-### 2. Get Library of Yore
+### 1. Get Library of Yore
 
 **Option A — Portable (Recommended)**
 Download `LibraryOfYore.exe` from the [Releases](https://github.com/NurAbir/Library-of-Yore/releases) page. Drop it anywhere and run it. No installation needed.
@@ -131,14 +125,13 @@ Download `LibraryOfYore.exe` from the [Releases](https://github.com/NurAbir/Libr
 **Option B — Installer**
 Download `LibraryOfYore_Setup.exe` and run it to install to Program Files with a Start Menu shortcut.
 
-### 3. First Launch
+### 2. First Launch
 
-On first run, the app checks `localhost:27017` for MongoDB.
+The main window opens immediately — there's nothing to install or configure first. Novelfire and NovelPhoenix novels begin auto-refreshing in the background.
 
-- **Connected** → main window opens immediately. Novelfire novels begin auto-refreshing in the background.
-- **Not found** → setup wizard guides you to download or start MongoDB
+> **Upgrading from a version before 2.0?** If Library of Yore finds an existing MongoDB library on your machine, it offers to import it automatically on first launch (or any time from **File → Import Existing MongoDB Library…**). See the [Changelog](CHANGELOG.md).
 
-### 4. Install the Browser Extension (Optional)
+### 3. Install the Browser Extension (Optional)
 
 Download `Library.of.Yore.Browser.Extension.zip` from the same [Releases](https://github.com/NurAbir/Library-of-Yore/releases) page and follow the [installation steps](#installing-the-extension) above.
 
@@ -226,8 +219,9 @@ libraryofyore/
 │   └── icons/
 │
 ├── database/
-│   ├── connection.py       # MongoDB client singleton + connection test
-│   └── models.py           # Novel dataclass + NovelRepository (CRUD + GridFS)
+│   ├── connection.py       # Local JSON storage (TinyDB) singleton + write lock
+│   ├── models.py           # Novel dataclass + NovelRepository (CRUD + local cover files)
+│   └── legacy_mongo.py     # One-time MongoDB → local import, for pre-2.0 upgraders only
 │
 ├── scrapers/
 │   ├── __init__.py         # Scraper factory (get_scraper_for_url)
@@ -239,7 +233,7 @@ libraryofyore/
 │   └── novelupdates.py     # NovelUpdates.com scraper
 │
 ├── ui/
-│   ├── setup_wizard.py     # First-time MongoDB setup dialog
+│   ├── setup_wizard.py     # Import Wizard — only shown if a pre-2.0 MongoDB library is found
 │   ├── main_window.py      # Primary window (grid, sidebar, toolbar, system tray)
 │   ├── novel_card.py       # Individual novel card widget
 │   └── add_novel_dialog.py # Add/Edit novel with live scraping
@@ -252,17 +246,19 @@ libraryofyore/
 
 ## Data Storage
 
-All data is stored **locally** in your MongoDB instance — nothing leaves your machine.
+All data is stored **locally** — nothing leaves your machine, and no database server is required.
 
 | | |
 |---|---|
-| **Database** | `libraryofyore` |
-| **Collection** | `novels` — metadata, progress, reading history |
-| **GridFS** | `covers.files` / `covers.chunks` — cover images |
+| **Library file** | `%LOCALAPPDATA%\LibraryOfYore\library.json` — metadata, progress, reading history |
+| **Cover images** | `%LOCALAPPDATA%\LibraryOfYore\covers\` — one file per novel cover |
+| **Crash safety** | `library.json.bak` — a snapshot written before every save |
 
-**Backup:** `mongodump --db libraryofyore --out C:\backup\`
-**Restore:** `mongorestore --db libraryofyore C:\backup\libraryofyore\`
+**Backup:** Copy the entire `%LOCALAPPDATA%\LibraryOfYore\` folder.
+**Restore:** Copy it back to the same location on any machine.
 **Portable backup:** Use the Excel export feature.
+
+> Upgrading from before 2.0? See [Quick Start](#quick-start) — Library of Yore can import your existing MongoDB library automatically.
 
 ---
 
@@ -270,11 +266,12 @@ All data is stored **locally** in your MongoDB instance — nothing leaves your 
 
 | Issue | Solution |
 |-------|----------|
-| "Cannot reach MongoDB server" | Run `net start MongoDB` in an admin Command Prompt |
 | Scraping fails | Site layout may have changed — use Manual Entry instead |
 | Covers don't load | Check internet; try Fetch Metadata again |
 | App won't start (no window) | Check `crash_log.txt` next to the `.exe` for the error |
 | App settings corrupted | Delete `%LOCALAPPDATA%\LibraryOfYore\config.json` to reset |
+| Library looks empty/corrupted | Rename `library.json.bak` to `library.json` in `%LOCALAPPDATA%\LibraryOfYore\` to roll back to the last good save |
+| Existing MongoDB library not detected | The import check only looks at `localhost:27017` (or a custom URI from an old `config.json`) — make sure MongoDB is still running the first time you launch 2.0, then use **File → Import Existing MongoDB Library…** |
 | Chapters show wrong number | Update to v1.0.1+ — the 4-digit chapter bug is fixed |
 | Extension shows "Disconnected" | Make sure Library of Yore is running (check the system tray) |
 | Card not updating from extension | Confirm the novel's Source URL matches the site you are reading on |

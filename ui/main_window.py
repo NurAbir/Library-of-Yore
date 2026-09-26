@@ -11,10 +11,9 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer
 from PyQt6.QtGui import QAction, QFont, QIcon
 
-from database.connection import test_connection, ensure_indexes
 from database.models import NovelRepository, Novel
 import api_server
-from ui.setup_wizard import SetupWizard
+from ui.setup_wizard import ImportWizard
 from ui.add_novel_dialog import AddNovelDialog
 from ui.novel_card import NovelCard
 from ui import theme
@@ -154,20 +153,26 @@ class MainWindow(QMainWindow):
         self.setMinimumSize(1000, 650)
 
     def _check_db_connection(self):
-        """Verify MongoDB on startup; show wizard if needed."""
-        ok, msg = test_connection()
-        if not ok:
-            wizard = SetupWizard(self)
-            if wizard.exec() != SetupWizard.DialogCode.Accepted:
-                QMessageBox.critical(
-                    self, "Cannot Start",
-                    "MongoDB connection is required. The application will close."
-                )
-                import sys
-                sys.exit(1)
+        """Set up local storage. The very first time the app runs (no
+        library.json yet), silently check whether a pre-2.0 MongoDB library
+        exists on this machine and, if so, offer to import it — see
+        database/legacy_mongo.py. A fresh install with no MongoDB at all
+        skips straight past this with no delay."""
+        from config import LIBRARY_FILE
+        from database.connection import recover_library_file
+        from database.legacy_mongo import detect_legacy_library
+
+        recovery_msg = recover_library_file()
+        if recovery_msg:
+            QMessageBox.warning(self, "Library File Recovered", recovery_msg)
+
+        if not LIBRARY_FILE.exists():
+            legacy_count = detect_legacy_library()
+            if legacy_count:
+                wizard = ImportWizard(legacy_count, self)
+                wizard.exec()  # Skip is fine too — either way we continue with local storage below
 
         self.repo = NovelRepository()
-        ensure_indexes()
         # Start local API server for the browser extension
         api_server.start()
         # Wire the extension → UI bridge: signal is thread-safe across Qt threads
@@ -176,11 +181,29 @@ class MainWindow(QMainWindow):
             lambda novel_id, chapter, total: self.chapter_updated.emit(novel_id, chapter, total or 0)
         )
 
+    def _import_legacy_library(self):
+        """Manual counterpart to the automatic first-run check — lets someone
+        who clicked Skip (or added MongoDB back later) trigger the import at
+        any time from the File menu."""
+        from database.legacy_mongo import detect_legacy_library
+        legacy_count = detect_legacy_library()
+        if not legacy_count:
+            QMessageBox.information(
+                self, "No Existing Library Found",
+                "No MongoDB library was found on this machine (checked localhost:27017)."
+            )
+            return
+        wizard = ImportWizard(legacy_count, self)
+        if wizard.exec() == ImportWizard.DialogCode.Accepted:
+            self._refresh_library()
+
     def _build_ui(self):
         # Menu bar
         menubar = self.menuBar()
         file_menu = menubar.addMenu("File")
         file_menu.addAction("Export to Excel", self._export_excel)
+        file_menu.addSeparator()
+        file_menu.addAction("Import Existing MongoDB Library…", self._import_legacy_library)
         file_menu.addSeparator()
         file_menu.addAction("Exit", self.close)
 
@@ -570,7 +593,7 @@ class MainWindow(QMainWindow):
             f"<h2>Library of Yore v{APP_VERSION}</h2>"
             "<p>A desktop bookmark tracker for web novels.</p>"
             "<p>Supports: Webnovel.com, Novelfire.net, NovelPhoenix.com</p>"
-            "<p>Built with Python, PyQt6, and MongoDB.</p>"
+            "<p>Built with Python and PyQt6. Stored locally — no database server required.</p>"
             f"<p><b>Browser Extension API:</b> localhost:{api_server.PORT}</p>"
         )
 
@@ -619,8 +642,8 @@ class MainWindow(QMainWindow):
     def closeEvent(self, event):
         if self._force_quit:
             # Real quit — clean up and exit
-            from database.connection import close_connection
-            close_connection()
+            from database.connection import close_db
+            close_db()
             event.accept()
         else:
             # Hide to tray instead of closing

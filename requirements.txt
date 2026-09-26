@@ -1,4 +1,9 @@
 PyQt6>=6.4.0
+tinydb>=4.8.0
+# pymongo is no longer the primary datastore (see database/legacy_mongo.py) —
+# kept only so upgraders' one-time "import existing MongoDB library" works
+# out of the box. Safe to remove in a future release once migration has
+# served its purpose.
 pymongo>=4.6.0
 playwright>=1.40.0
 openpyxl>=3.1.0
