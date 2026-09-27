@@ -581,19 +581,25 @@ If double-clicking the `.exe` does nothing or the window flashes and disappears:
 |------------------------|-----|
 | `ModuleNotFoundError` | Rebuild with the latest `build.bat` (v1.0.1+) |
 | `AttributeError: module 'numpy' has no attribute 'short'` | Rebuild with v1.4.0+ — `numpy`/`pandas`/`matplotlib` are now excluded from the build since they're unused and PyInstaller was bundling numpy incompletely |
-| `PermissionError` / `FileNotFoundError` on `library.json` | Make sure `%LOCALAPPDATA%\LibraryOfYore\` isn't read-only or synced by a tool that locks files (see below) |
+| `UnicodeDecodeError` / `charmap codec` / `PermissionError` / `FileNotFoundError` on `library.json` | Since v2.0, this is repaired automatically on the next launch (see below) — only worth checking `%LOCALAPPDATA%\LibraryOfYore\` isn't read-only or locked by a sync tool if the automatic repair itself reports failure |
 | `FileNotFoundError: assets/logo.ico` | Make sure the `assets/` folder is present when building |
 | Qt platform plugin error | Reinstall from a fresh build |
 
 ### Library File Won't Load / Looks Corrupted
 
-**Symptom:** The app opens with an empty library even though you know you've added novels, or crashes right after opening.
+**Symptom:** The app used to crash right on startup with an error about `library.json` (e.g. `UnicodeDecodeError` or `charmap`), or opens with an unexpectedly empty library.
+
+Since v2.0, Library of Yore checks `library.json` on every startup and repairs it automatically — you shouldn't need to do anything by hand:
+
+1. **Wrong-encoding file** (the most common cause — usually a file saved by an early 2.0 build on Windows): re-decoded and repaired **in place**. Nothing is lost; you'll see a one-time message confirming this.
+2. **Genuinely unreadable main file, but the automatic backup is fine**: restored from `library.json.bak` (a snapshot taken before every save). A few very recent changes might be missing.
+3. **Neither the file nor the backup can be read**: set aside as `library.json.broken-<timestamp>` so the app can still start with an empty library. If you have an existing MongoDB library, use **File → Import Existing MongoDB Library…** to bring your novels back (see [Section 4](#4-first-launch--import-wizard)).
+
+If you ever see a message saying the file **couldn't** be moved or repaired automatically (rare — usually because something else has it locked, e.g. a cloud-sync tool actively writing to it):
 
 1. Close Library of Yore completely (right-click the tray icon → Quit)
-2. Go to `%LOCALAPPDATA%\LibraryOfYore\`
-3. Rename `library.json` to `library.json.broken` (so you don't lose it)
-4. Rename `library.json.bak` to `library.json` — this is the automatic snapshot taken before your last save
-5. Relaunch Library of Yore
+2. Make sure nothing else has `%LOCALAPPDATA%\LibraryOfYore\library.json` open (check antivirus/sync-tool activity)
+3. Relaunch — the same automatic repair described above will run again
 
 If a cloud-sync tool (OneDrive, Dropbox, etc.) is set to sync `%LOCALAPPDATA%`, it can occasionally lock the file mid-write — excluding that folder from sync avoids this.
 

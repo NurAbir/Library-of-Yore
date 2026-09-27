@@ -219,7 +219,7 @@ libraryofyore/
 │   └── icons/
 │
 ├── database/
-│   ├── connection.py       # Local JSON storage (TinyDB) singleton + write lock
+│   ├── connection.py       # Local JSON storage (TinyDB) singleton, write lock, auto-repair on read failure
 │   ├── models.py           # Novel dataclass + NovelRepository (CRUD + local cover files)
 │   └── legacy_mongo.py     # One-time MongoDB → local import, for pre-2.0 upgraders only
 │
@@ -270,7 +270,7 @@ All data is stored **locally** — nothing leaves your machine, and no database 
 | Covers don't load | Check internet; try Fetch Metadata again |
 | App won't start (no window) | Check `crash_log.txt` next to the `.exe` for the error |
 | App settings corrupted | Delete `%LOCALAPPDATA%\LibraryOfYore\config.json` to reset |
-| Library looks empty/corrupted | Rename `library.json.bak` to `library.json` in `%LOCALAPPDATA%\LibraryOfYore\` to roll back to the last good save |
+| Library looks empty / won't load on startup | Since v2.0 this is repaired automatically on next launch (wrong-encoding files are fixed in place, then `.bak`, then quarantine as a last resort) — see [User Manual](USER_MANUAL.md#17-troubleshooting) if you see a message saying the automatic repair itself failed |
 | Existing MongoDB library not detected | The import check only looks at `localhost:27017` (or a custom URI from an old `config.json`) — make sure MongoDB is still running the first time you launch 2.0, then use **File → Import Existing MongoDB Library…** |
 | Chapters show wrong number | Update to v1.0.1+ — the 4-digit chapter bug is fixed |
 | Extension shows "Disconnected" | Make sure Library of Yore is running (check the system tray) |
