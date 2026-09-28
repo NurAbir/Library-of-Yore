@@ -38,11 +38,11 @@ def test_progress_requires_json_content_type(server):
     nid = repo.insert(Novel(title="CT test"))
     status, _, _ = _post(server, "/progress", json.dumps({"novel_id": nid, "chapter": 5}), "text/plain")
     assert status == 415
-    assert repo.get_by_id(nid).current_chapter == 0
+    assert repo.get_by_id(nid).current_chapter is None   # not started
 
     status, _, body = _post(server, "/progress", json.dumps({"novel_id": nid, "chapter": 5}))
     assert status == 200 and body["updated"] is True
-    assert repo.get_by_id(nid).current_chapter == 5
+    assert repo.get_by_id(nid).current_chapter == "5"
 
 
 def test_foreign_origin_gets_no_cors_header(server):

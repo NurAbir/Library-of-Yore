@@ -9,9 +9,11 @@ from PyQt6.QtWidgets import (
     QFrame, QSizePolicy, QScrollArea, QWidget
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
-from PyQt6.QtGui import QPixmap
+from PyQt6.QtGui import QPixmap, QRegularExpressionValidator
+from PyQt6.QtCore import QRegularExpression
 
-from database.models import Novel, NovelRepository
+from database.models import Novel, NovelRepository, CONTENT_TYPES
+from utils import chapters as ch
 from scrapers import get_scraper_for_url
 from utils.helpers import download_image, bytes_to_pixmap
 from config import STATUSES, get_asset_path
@@ -91,6 +93,10 @@ class AddNovelDialog(QDialog):
         self.cover_changed = False
         self.cover_source_url = novel.cover_url if novel else ""
         self.scraped_site_status = ""
+        # Chapter list / locked list (range strings) from the site. Kept from
+        # the stored novel when editing; replaced when Fetch Metadata runs.
+        self.chapter_list = novel.chapter_list if novel else ""
+        self.locked_list = novel.locked_list if novel else ""
 
         self.setWindowTitle("Edit Novel" if self.is_edit else "Add Novel")
         self.setMinimumSize(750, 600)
@@ -238,25 +244,42 @@ class AddNovelDialog(QDialog):
         chapter_layout.setContentsMargins(0, 0, 0, 0)
         chapter_layout.setSpacing(16)
 
-        self.current_chapter_spin = QSpinBox()
-        self.current_chapter_spin.setRange(0, 99999)
-        self.current_chapter_spin.setValue(0)
-        self.current_chapter_spin.setMinimumHeight(32)
-        self.current_chapter_spin.setMinimumWidth(100)
-        chapter_layout.addWidget(QLabel("Current:"))
-        chapter_layout.addWidget(self.current_chapter_spin)
+        # Chapter numbers can be decimals (2.5, 0.01). Left empty, Current
+        # means "not started", which is different from chapter 0.
+        chapter_validator = QRegularExpressionValidator(QRegularExpression(r"^\d{0,7}(\.\d{0,3})?$"))
 
-        self.total_chapter_spin = QSpinBox()
-        self.total_chapter_spin.setRange(0, 99999)
-        self.total_chapter_spin.setValue(0)
-        self.total_chapter_spin.setSpecialValueText("Unknown")
-        self.total_chapter_spin.setMinimumHeight(32)
-        self.total_chapter_spin.setMinimumWidth(100)
-        chapter_layout.addWidget(QLabel("Total:"))
-        chapter_layout.addWidget(self.total_chapter_spin)
+        self.current_chapter_input = QLineEdit()
+        self.current_chapter_input.setValidator(chapter_validator)
+        self.current_chapter_input.setPlaceholderText("Not started")
+        self.current_chapter_input.setToolTip("Last chapter you read, e.g. 12 or 2.5. Leave empty if you haven't started.")
+        self.current_chapter_input.setMinimumHeight(32)
+        self.current_chapter_input.setMaximumWidth(110)
+        chapter_layout.addWidget(QLabel("Current:"))
+        chapter_layout.addWidget(self.current_chapter_input)
+
+        self.latest_chapter_input = QLineEdit()
+        self.latest_chapter_input.setValidator(chapter_validator)
+        self.latest_chapter_input.setPlaceholderText("Unknown")
+        self.latest_chapter_input.setToolTip("Highest chapter number the site has (filled in by Fetch Metadata).")
+        self.latest_chapter_input.setMinimumHeight(32)
+        self.latest_chapter_input.setMaximumWidth(110)
+        chapter_layout.addWidget(QLabel("Latest:"))
+        chapter_layout.addWidget(self.latest_chapter_input)
 
         chapter_layout.addStretch()
         form.addRow("Chapters", chapter_widget)
+
+        self.chapter_list_label = QLabel()
+        self.chapter_list_label.setStyleSheet(f"color: {theme.TEXT_MUTED}; font-size: 11px;")
+        self.chapter_list_label.setWordWrap(True)
+        form.addRow("", self.chapter_list_label)
+        self._update_chapter_list_label()
+
+        # Type
+        self.type_combo = QComboBox()
+        self.type_combo.addItems([t.title() for t in CONTENT_TYPES])
+        self.type_combo.setMinimumHeight(32)
+        form.addRow("Type", self.type_combo)
 
         # Status
         self.status_combo = QComboBox()
@@ -348,6 +371,18 @@ class AddNovelDialog(QDialog):
         # Global style — shared with the main window / setup wizard
         self.setStyleSheet(theme.dialog_stylesheet())
 
+    def _update_chapter_list_label(self):
+        chapters = ch.decode_ranges(self.chapter_list)
+        if chapters:
+            locked = len(ch.decode_ranges(self.locked_list))
+            text = f"Site chapter list: {len(chapters)} chapters ({chapters[0]} to {chapters[-1]})"
+            if locked:
+                text += f", {locked} locked"
+            text += ". +1 follows this list, including decimals and gaps."
+        else:
+            text = "No chapter list from the site: +1 goes to the next whole chapter."
+        self.chapter_list_label.setText(text)
+
     def _groupbox_style(self):
         # Group boxes already pick up their look from the shared stylesheet;
         # kept as a no-op call site so existing setStyleSheet(...) calls above
@@ -387,8 +422,16 @@ class AddNovelDialog(QDialog):
             self.author_input.setText(result.author)
         if result.synopsis and not self.synopsis_input.toPlainText():
             self.synopsis_input.setPlainText(result.synopsis)
-        if result.total_chapters and self.total_chapter_spin.value() == 0:
-            self.total_chapter_spin.setValue(result.total_chapters)
+        if result.latest_chapter:
+            self.latest_chapter_input.setText(result.latest_chapter)
+        if result.chapter_list:
+            self.chapter_list = ch.encode_ranges(result.chapter_list)
+            self.locked_list = ch.encode_ranges(result.locked_list)
+            self._update_chapter_list_label()
+        if result.source_name == "flamecomics":
+            idx = self.type_combo.findText(result.content_type.title())
+            if idx >= 0:
+                self.type_combo.setCurrentIndex(idx)
         if result.genres:
             self.genres_input.setText(", ".join(result.genres))
         if result.status:
@@ -412,8 +455,8 @@ class AddNovelDialog(QDialog):
             parts.append(result.title)
         if result.author:
             parts.append(result.author)
-        if result.total_chapters:
-            parts.append(str(result.total_chapters) + " ch")
+        if result.latest_chapter:
+            parts.append("latest ch " + result.latest_chapter)
         status_text = "✓  " + "  •  ".join(parts) if parts else "✓  Metadata fetched"
         self.fetch_status_label.setText(status_text)
         self.fetch_status_label.setVisible(True)
@@ -486,9 +529,11 @@ class AddNovelDialog(QDialog):
         self.title_input.setText(self.novel.title)
         self.author_input.setText(self.novel.author)
         self.url_input.setText(self.novel.source_url)
-        self.current_chapter_spin.setValue(self.novel.current_chapter)
-        if self.novel.total_chapters:
-            self.total_chapter_spin.setValue(self.novel.total_chapters)
+        self.current_chapter_input.setText(self.novel.current_chapter or "")
+        self.latest_chapter_input.setText(self.novel.latest_chapter or "")
+        idx = self.type_combo.findText(self.novel.content_type.title())
+        if idx >= 0:
+            self.type_combo.setCurrentIndex(idx)
         idx = self.status_combo.findText(self.novel.status.title())
         if idx >= 0:
             self.status_combo.setCurrentIndex(idx)
@@ -516,8 +561,11 @@ class AddNovelDialog(QDialog):
             author=self.author_input.text().strip(),
             source_url=source_url,
             source_name=scraper.SOURCE_NAME if scraper else "manual",
-            current_chapter=self.current_chapter_spin.value(),
-            total_chapters=self.total_chapter_spin.value() if self.total_chapter_spin.value() > 0 else None,
+            current_chapter=ch.parse_chapter(self.current_chapter_input.text()),
+            latest_chapter=ch.parse_chapter(self.latest_chapter_input.text()),
+            chapter_list=self.chapter_list,
+            locked_list=self.locked_list,
+            content_type=self.type_combo.currentText().lower(),
             status=self.status_combo.currentText().lower(),
             rating=self.rating_spin.value(),
             genres=[g.strip() for g in self.genres_input.text().split(",") if g.strip()],

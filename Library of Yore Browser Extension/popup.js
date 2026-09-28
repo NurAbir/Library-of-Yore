@@ -93,21 +93,24 @@ function render(state) {
     libraryCard.style.borderLeftColor = "#d4af37";
 
     libTitle.textContent    = novel.title;
-    libChapter.textContent  = `Ch ${novel.current_chapter}`;
+    const storedCh  = novel.current_chapter;              // string, or null = not started
+    const browserCh = String(state.reading.chapter);
+    libChapter.textContent  = storedCh === null || storedCh === undefined ? "Not started" : `Ch ${storedCh}`;
     libProgress.textContent = `${novel.percent_complete}%`;
 
-    const browserCh = state.reading.chapter;
-    const storedCh  = novel.current_chapter;
-
     const byTitle = state.libraryMatch === "title";
+    const newer = storedCh === null || storedCh === undefined || parseFloat(browserCh) > parseFloat(storedCh);
+    const same  = !newer && parseFloat(browserCh) === parseFloat(storedCh);
 
-    if (browserCh > storedCh) {
-      syncState.textContent  = `⬆ ${browserCh - storedCh} chapter${browserCh - storedCh > 1 ? "s" : ""} ahead`
-        + (byTitle ? " (matched by title only: check it's the right entry)" : "");
+    if (newer) {
+      syncState.textContent  = (storedCh === null || storedCh === undefined
+          ? "⬆ Not started in your library"
+          : `⬆ Ahead of your library (Ch ${storedCh})`)
+        + (byTitle ? " · matched by title only: check it's the right entry" : "");
       syncState.className    = "sync-state";
       btnSync.disabled       = false;
       btnSync.textContent    = `Sync to Ch ${browserCh}`;
-    } else if (browserCh === storedCh) {
+    } else if (same) {
       syncState.textContent  = "✓ Up to date";
       syncState.className    = "sync-state sync-state--already";
       btnSync.disabled       = true;
@@ -152,8 +155,9 @@ btnSync.addEventListener("click", async () => {
 
   const result = await send({
     type:    "SYNC_NOW",
-    novelId: state.libraryNovel.id,
-    chapter: state.reading.chapter,
+    novelId:   state.libraryNovel.id,
+    chapter:   String(state.reading.chapter),
+    ambiguous: !!state.reading.ambiguous,
   });
 
   if (result?.ok) {

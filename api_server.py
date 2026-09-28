@@ -11,11 +11,12 @@ from typing import List, Optional
 from urllib.parse import urlparse, parse_qs
 
 from database.models import NovelRepository
+from utils import chapters as ch
 from config import APP_VERSION
 
 PORT = 7337
 _server_instance = None
-_progress_callback = None  # Called with (novel_id: str, chapter: int, total: int) after a successful update
+_progress_callback = None  # Called with (novel_id: str, chapter: str, latest: str|None) after a successful update
 
 
 def set_progress_callback(fn):
@@ -116,6 +117,7 @@ class Handler(BaseHTTPRequestHandler):
         elif parsed.path == "/find":
             url   = params.get("url",   [""])[0].strip()
             title = params.get("title", [""])[0].strip()
+            ctype = params.get("type",  [""])[0].strip().lower()
             repo  = NovelRepository()
             novels = repo.get_all()
 
@@ -124,7 +126,7 @@ class Handler(BaseHTTPRequestHandler):
                 match = _find_by_url(novels, url)
                 match_type = "url" if match else None
             if not match and title:
-                match = _find_by_title(novels, title, _domain(url) if url else "")
+                match = _find_by_title(novels, title, _domain(url) if url else "", ctype)
                 match_type = "title" if match else None
 
             if match:
@@ -157,28 +159,28 @@ class Handler(BaseHTTPRequestHandler):
             chapter    = data.get("chapter")
             if not novel_id or chapter is None:
                 return self._error("novel_id and chapter are required")
-            try:
-                chapter = int(chapter)
-            except (TypeError, ValueError):
-                return self._error("chapter must be an integer")
+            # Chapters are numbers with an optional decimal ("12", "2.5",
+            # 0.01), sent as a string or a number.
+            if ch.parse_chapter(chapter) is None:
+                return self._error("chapter must be a chapter number such as 12 or 2.5")
+            ambiguous = bool(data.get("ambiguous"))
 
             repo = NovelRepository()
-            novel = repo.get_by_id(novel_id)
+            novel, updated, previous, recorded = repo.advance_progress(novel_id, chapter, ambiguous)
             if not novel:
                 return self._error("Novel not found", 404)
 
-            # Only update if chapter is newer than stored
-            if chapter > novel.current_chapter:
-                repo.update_chapter_progress(novel_id, chapter, increment_read=True)
+            if updated:
                 # Notify the UI (callback is a Qt signal emit — thread-safe)
                 if _progress_callback:
-                    _progress_callback(novel_id, chapter, novel.total_chapters)
+                    _progress_callback(novel_id, recorded, novel.latest_chapter)
                 self._send({"success": True, "updated": True,
-                            "previous": novel.current_chapter, "current": chapter})
+                            "previous": previous, "current": recorded,
+                            "novel": _novel_dict(novel)})
             else:
                 self._send({"success": True, "updated": False,
                             "message": "Chapter not newer than stored value",
-                            "stored": novel.current_chapter})
+                            "stored": previous, "reported": recorded})
         else:
             self._error("Not found", 404)
 
@@ -186,15 +188,23 @@ class Handler(BaseHTTPRequestHandler):
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
 def _novel_dict(n) -> dict:
+    p = n.progress
     return {
         "id":              n._id,
         "title":           n.title,
         "author":          n.author,
+        "content_type":    n.content_type,
+        # chapter numbers are strings ("12", "2.5"); current is null when not started
         "current_chapter": n.current_chapter,
-        "total_chapters":  n.total_chapters,
+        "latest_chapter":  n.latest_chapter,
+        "total_chapters":  n.latest_chapter,   # pre-2.1.0 name, kept for older extensions
+        "next_chapter":    p.next_chapter,
+        "chapters_behind": p.behind,
+        "locked_behind":   p.locked_behind,
+        "is_up_to_date":   p.up_to_date,
         "status":          n.status,
         "source_url":      n.source_url,
-        "percent_complete": n.percent_complete,
+        "percent_complete": p.percent,
     }
 
 
@@ -277,17 +287,21 @@ def _normalize_title(title: str) -> str:
     return re.sub(r"[^\w]+", " ", (title or "").lower()).strip()
 
 
-def _find_by_title(novels, title: str, browser_domain: str = ""):
+def _find_by_title(novels, title: str, browser_domain: str = "", content_type: str = ""):
     """Title fallback, used only when the URL didn't match. Looks at titles
     only (before v2.0.2 it also searched author and notes), and when the
     browser's site is known, only at novels saved from that site or with no
-    source URL at all. Returns a match only if it is unambiguous."""
+    source URL at all. When the page's type is known (novel or manga, e.g.
+    on Flame Comics), only entries of that type count, so reading a manhwa
+    chapter never updates the novel of the same name. Returns a match only
+    if it is unambiguous."""
     wanted = _normalize_title(title)
     if not wanted:
         return None
     pool = [
         n for n in novels
-        if not browser_domain or not n.source_url or _domain(n.source_url) == browser_domain
+        if (not browser_domain or not n.source_url or _domain(n.source_url) == browser_domain)
+        and (content_type not in ("novel", "manga") or n.content_type == content_type)
     ]
     exact = [n for n in pool if _normalize_title(n.title) == wanted]
     if len(exact) == 1:

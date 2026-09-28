@@ -65,7 +65,7 @@ def _legacy_doc_to_novel(doc: dict):
     if "progress" in data:
         prog = data.pop("progress")
         data["current_chapter"] = prog.get("current_chapter", 0)
-        data["total_chapters"] = prog.get("total_chapters")
+        data["latest_chapter"] = prog.get("total_chapters")
         data["status"] = prog.get("status", "ongoing")
     if "metadata" in data:
         meta = data.pop("metadata")

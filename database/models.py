@@ -8,6 +8,22 @@ from tinydb import Query
 
 from database.connection import get_db, get_lock, backup_library_file
 from config import COVERS_DIR
+from utils import chapters as ch
+
+# Bumped when the stored document shape changes. 2 = v2.1.0: chapter numbers
+# stored as strings, "not started" stored as null, chapter/locked lists.
+SCHEMA_VERSION = 2
+
+CONTENT_TYPES = ("novel", "manga")
+
+
+def _migrate_chapter(value, zero_means_none: bool) -> Optional[str]:
+    """Old libraries stored chapters as plain numbers, where 0 meant both
+    "not started" (current chapter) and "unknown" (total). A numeric 0 from
+    such a record therefore becomes None; a string "0" is a real chapter 0."""
+    if zero_means_none and not isinstance(value, str) and value == 0:
+        return None
+    return ch.parse_chapter(value)
 
 
 def _dt_to_str(dt: Optional[datetime.datetime]) -> Optional[str]:
@@ -39,8 +55,11 @@ class Novel:
     source_url: str = ""
     cover_image_id: Optional[str] = None # local cover filename under config.COVERS_DIR
     cover_url: str = ""                  # Original URL for re-fetch
-    current_chapter: int = 0
-    total_chapters: Optional[int] = None
+    current_chapter: Optional[str] = None  # canonical chapter string; None = not started
+    latest_chapter: Optional[str] = None   # highest chapter the site lists; None = unknown
+    chapter_list: str = ""                 # every chapter the site lists, as ranges ("0.01,1-755"); "" = unknown
+    locked_list: str = ""                  # chapters the site marks locked/paid, as ranges
+    content_type: str = "novel"            # "novel" or "manga"
     status: str = "ongoing"              # ongoing, completed, hiatus, dropped, planned (your status)
     site_status: str = ""                # what the source site says: ongoing/completed/hiatus ("" = unknown)
     rating: int = 0                      # 0-10
@@ -54,17 +73,36 @@ class Novel:
     scrape_error: Optional[str] = None
     _id: Optional[str] = None
 
+    def __post_init__(self):
+        # Accept numbers from older code paths (legacy MongoDB import, old
+        # records) and normalize everything to canonical chapter strings.
+        self.current_chapter = _migrate_chapter(self.current_chapter, zero_means_none=True)
+        self.latest_chapter = _migrate_chapter(self.latest_chapter, zero_means_none=True)
+        if self.content_type not in CONTENT_TYPES:
+            self.content_type = "novel"
+
+    @property
+    def progress(self) -> "ch.Progress":
+        return ch.compute_progress(self.current_chapter, self.latest_chapter,
+                                   self.chapter_list, self.locked_list)
+
     @property
     def percent_complete(self) -> float:
-        if self.total_chapters and self.total_chapters > 0:
-            return round((self.current_chapter / self.total_chapters) * 100, 1)
-        return 0.0
+        return self.progress.percent
 
     @property
     def is_up_to_date(self) -> bool:
-        if self.total_chapters and self.total_chapters > 0:
-            return self.current_chapter >= self.total_chapters
-        return False
+        return self.progress.up_to_date
+
+    @property
+    def next_chapter(self) -> str:
+        return self.progress.next_chapter
+
+    @property
+    def total_chapters(self) -> Optional[str]:
+        """Backward-compatible alias: before v2.1.0 this held a chapter count
+        or number; it now means the latest chapter the site lists."""
+        return self.latest_chapter
 
     @classmethod
     def from_dict(cls, data: dict) -> "Novel":
@@ -80,8 +118,11 @@ class Novel:
             data["scrape_error"] = src.get("scrape_error")
         if "progress" in data:
             prog = data.pop("progress")
-            data["current_chapter"] = prog.get("current_chapter", 0)
-            data["total_chapters"] = prog.get("total_chapters")
+            data["current_chapter"] = prog.get("current_chapter")
+            # pre-2.1.0 records stored "total_chapters" (a number)
+            data["latest_chapter"] = prog.get("latest_chapter", prog.get("total_chapters"))
+            data["chapter_list"] = prog.get("chapter_list", "") or ""
+            data["locked_list"] = prog.get("locked_list", "") or ""
             data["status"] = prog.get("status", "ongoing")
             data["site_status"] = prog.get("site_status", "")
         if "metadata" in data:
@@ -124,6 +165,40 @@ def apply_site_status(novel: Novel, site_status: str) -> bool:
     return changed
 
 
+def apply_scrape_result(novel: Novel, result) -> bool:
+    """Copy fresh site data from a successful ScraperResult onto a novel:
+    latest chapter, chapter/locked lists, site status, synopsis and (for
+    Flame Comics, which knows it) novel vs manga. Never touches your current
+    chapter, last_read or a Dropped/Planned status. Returns True if anything
+    you'd see changed."""
+    changed = False
+    latest = ch.parse_chapter(result.latest_chapter)
+    if latest is not None and latest != novel.latest_chapter:
+        novel.latest_chapter = latest
+        changed = True
+    if result.chapter_list:
+        chapter_list = ch.encode_ranges(result.chapter_list)
+        locked_list = ch.encode_ranges(result.locked_list)
+        if chapter_list != novel.chapter_list:
+            novel.chapter_list = chapter_list
+            changed = True
+        if locked_list != novel.locked_list:
+            novel.locked_list = locked_list
+            changed = True
+    if apply_site_status(novel, result.status):
+        changed = True
+    if result.synopsis and result.synopsis != novel.synopsis:
+        novel.synopsis = result.synopsis
+        changed = True
+    if result.source_name == "flamecomics" and result.content_type in CONTENT_TYPES \
+            and result.content_type != novel.content_type:
+        novel.content_type = result.content_type
+        changed = True
+    novel.last_scraped = datetime.datetime.utcnow()
+    novel.scrape_error = None
+    return changed
+
+
 class NovelRepository:
     """CRUD and query operations for Novels, backed by a local JSON file
     (TinyDB) with cover images stored as plain files on disk."""
@@ -136,9 +211,12 @@ class NovelRepository:
         """Serialize a Novel to the stored document shape. Kept nested
         (source/progress/metadata/history/cover_image) for readability of the
         underlying JSON file and for continuity with earlier versions."""
+        progress = novel.progress
         return {
             "_id": novel._id,
+            "schema": SCHEMA_VERSION,
             "title": novel.title,
+            "content_type": novel.content_type,
             "author": novel.author,
             "source": {
                 "name": novel.source_name,
@@ -152,11 +230,15 @@ class NovelRepository:
             },
             "progress": {
                 "current_chapter": novel.current_chapter,
-                "total_chapters": novel.total_chapters,
+                "latest_chapter": novel.latest_chapter,
+                "chapter_list": novel.chapter_list,
+                "locked_list": novel.locked_list,
                 "status": novel.status,
                 "site_status": novel.site_status,
-                "percent_complete": novel.percent_complete,
-                "is_up_to_date": novel.is_up_to_date,
+                # derived, stored for readability of the JSON file only
+                "percent_complete": progress.percent,
+                "is_up_to_date": progress.up_to_date,
+                "chapters_behind": progress.behind,
             },
             "metadata": {
                 "rating": novel.rating,
@@ -271,8 +353,26 @@ class NovelRepository:
         except Exception:
             pass
 
-    def update_chapter_progress(self, novel_id: str, new_chapter: int, increment_read: bool = True):
-        """Quick update for chapter progress."""
+    def update_many(self, novels: List[Novel]) -> int:
+        """Save several novels with one file write (used by the startup
+        auto-refresh, which before v2.1.0 rewrote the whole file once per
+        novel). Like update(), does not touch last_read."""
+        novels = [n for n in novels if n._id]
+        if not novels:
+            return 0
+        with get_lock():
+            backup_library_file()
+            updated = self.table.update_multiple(
+                [(self._to_doc(n), Query()._id == n._id) for n in novels]
+            )
+        return len(updated)
+
+    def update_chapter_progress(self, novel_id: str, new_chapter, increment_read: bool = True):
+        """Quick update for chapter progress. new_chapter may be a chapter
+        string or number; it is normalized to a canonical chapter string."""
+        new_chapter = ch.parse_chapter(new_chapter)
+        if new_chapter is None:
+            return
         with get_lock():
             doc = self.table.get(Query()._id == novel_id)
             if not doc:
@@ -287,6 +387,29 @@ class NovelRepository:
             # file (percent_complete, is_up_to_date) stay in step.
             self.table.update(self._to_doc(novel), Query()._id == novel_id)
 
+    def advance_progress(self, novel_id: str, reported, ambiguous: bool = False):
+        """Record a chapter reported by the browser extension, only if it is
+        further along than what's stored (progress never moves backwards;
+        from "not started" any chapter counts, including 0). The check and
+        the write happen under one lock.
+
+        `ambiguous` marks a number read from a URL like ".../chapter-2-5":
+        it is kept only if the site's chapter list has exactly that chapter,
+        otherwise it becomes the whole chapter (2).
+
+        Returns (novel or None, updated: bool, previous, recorded)."""
+        chapter = ch.parse_chapter(reported)
+        with get_lock():
+            novel = self.get_by_id(novel_id)
+            if not novel or chapter is None:
+                return novel, False, None, None
+            chapter = ch.resolve_reported(chapter, ambiguous, novel.chapter_list)
+            previous = novel.current_chapter
+            if not ch.is_newer(chapter, previous):
+                return novel, False, previous, chapter
+            self.update_chapter_progress(novel_id, chapter, increment_read=True)
+            return self.get_by_id(novel_id), True, previous, chapter
+
     def export_to_list(self) -> List[dict]:
         """Export all novels as flat dicts for spreadsheet."""
         novels = self.get_all(sort_by="title", sort_order="asc")
@@ -296,8 +419,11 @@ class NovelRepository:
                 "Title": n.title,
                 "Author": n.author,
                 "Status": n.status,
-                "Current Chapter": n.current_chapter,
-                "Total Chapters": n.total_chapters or "",
+                "Type": n.content_type.title(),
+                "Current Chapter": n.current_chapter if n.current_chapter is not None else "Not started",
+                "Latest Chapter": n.latest_chapter or "",
+                "Chapters Behind": "" if n.progress.behind is None else n.progress.behind,
+                "Locked Behind": n.progress.locked_behind or "",
                 "% Complete": n.percent_complete,
                 "Source URL": n.source_url,
                 "Source": n.source_name,

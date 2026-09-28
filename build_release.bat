@@ -60,6 +60,8 @@ python -m PyInstaller ^
     --hidden-import scrapers.wuxiaworld ^
     --hidden-import scrapers.freewebnovel ^
     --hidden-import scrapers.novelupdates ^
+    --hidden-import scrapers.flamecomics ^
+    --hidden-import utils.chapters ^
     --hidden-import database.connection ^
     --hidden-import database.models ^
     --hidden-import database.legacy_mongo ^

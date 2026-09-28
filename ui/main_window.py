@@ -10,7 +10,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer
 from PyQt6.QtGui import QAction, QFont, QIcon, QKeySequence
 
-from database.models import NovelRepository, Novel, apply_site_status
+from database.models import NovelRepository, Novel, apply_scrape_result
 import api_server
 from ui.setup_wizard import ImportWizard
 from ui.add_novel_dialog import AddNovelDialog
@@ -78,11 +78,14 @@ class ExportWorker(QThread):
 
 
 class NovelRefreshWorker(QThread):
-    """Background worker that re-scrapes Novelfire novels on startup to get the
-    latest chapter count and status without blocking the UI."""
+    """Background worker that re-scrapes novels on startup to get the latest
+    chapter, chapter list and status without blocking the UI."""
 
-    novel_updated = pyqtSignal(str, int, str, str)  # novel_id, total_chapters, site status, synopsis
-    finished = pyqtSignal(int)                       # number of novels successfully refreshed
+    # novel_id, ScraperResult. Sent as a whole object: before v2.1.0 chapter
+    # numbers travelled through int-typed signals, which turn a decimal such
+    # as 2.5 into a garbage number without any error.
+    novel_updated = pyqtSignal(str, object)
+    finished = pyqtSignal(int)              # number of novels successfully scraped
 
     # Pause between novels so a large library doesn't hit the site with a
     # burst of back-to-back requests on every launch.
@@ -106,10 +109,7 @@ class NovelRefreshWorker(QThread):
             try:
                 result = scraper.scrape(novel.source_url)
                 if result.success:
-                    total    = result.total_chapters if result.total_chapters else (novel.total_chapters or 0)
-                    status   = result.status   if result.status   else novel.status
-                    synopsis = result.synopsis if result.synopsis else novel.synopsis
-                    self.novel_updated.emit(novel._id, total, status, synopsis)
+                    self.novel_updated.emit(novel._id, result)
                     updated += 1
             except Exception:
                 pass  # Non-fatal — skip silently and move to next novel
@@ -121,7 +121,7 @@ class MainWindow(QMainWindow):
 
     # Emitted from the API-server thread via api_server.set_progress_callback;
     # Qt routes it safely to the main thread.
-    chapter_updated = pyqtSignal(str, int, int)  # novel_id, chapter, total
+    chapter_updated = pyqtSignal(str, str)  # novel_id, chapter (e.g. "12" or "2.5")
 
     def __init__(self):
         super().__init__()
@@ -149,6 +149,9 @@ class MainWindow(QMainWindow):
         # Cover ids are unique per saved image, so entries never go stale.
         self._cover_cache = {}
         self._tray_hint_shown = False
+        # Startup auto-refresh results waiting to be saved: novel_id -> ScraperResult.
+        # Saved together (one file write) when the refresh finishes.
+        self._pending_refresh = {}
 
         self._check_db_connection()
         self._build_ui()
@@ -194,7 +197,7 @@ class MainWindow(QMainWindow):
         # Wire the extension → UI bridge: signal is thread-safe across Qt threads
         self.chapter_updated.connect(self._on_extension_chapter_update)
         api_server.set_progress_callback(
-            lambda novel_id, chapter, total: self.chapter_updated.emit(novel_id, chapter, total or 0)
+            lambda novel_id, chapter, latest=None: self.chapter_updated.emit(novel_id, str(chapter))
         )
 
     def _import_legacy_library(self):
@@ -255,9 +258,12 @@ class MainWindow(QMainWindow):
         # Brand header
         brand_row = QHBoxLayout()
         brand_row.setSpacing(10)
+        # 46px (was 30px, which made the round badge hard to make out on the
+        # dark sidebar). logo_icon.png is the logo cropped tightly to its
+        # circle, so the badge fills the space instead of a fuzzy margin.
         logo_label = QLabel()
-        logo_pixmap = QIcon(get_asset_path("logo.ico")).pixmap(30, 30)
-        logo_label.setPixmap(logo_pixmap)
+        logo_label.setPixmap(QIcon(get_asset_path("logo_icon.png")).pixmap(46, 46))
+        logo_label.setFixedSize(46, 46)
         brand_row.addWidget(logo_label)
         brand_label = QLabel("Library of Yore")
         brand_label.setObjectName("sidebarBrand")
@@ -392,7 +398,7 @@ class MainWindow(QMainWindow):
 
     def _compute_grid_columns(self) -> int:
         """How many card columns fit the current scroll viewport width."""
-        card_span = 208 + self.grid_layout.spacing()  # NovelCard fixed width + grid gap
+        card_span = NovelCard.CARD_WIDTH + self.grid_layout.spacing()  # card width + grid gap
         viewport_width = self.scroll.viewport().width()
         if viewport_width <= 0:
             return 4  # sane fallback before the window has been laid out/shown
@@ -429,6 +435,7 @@ class MainWindow(QMainWindow):
         while self.grid_layout.count():
             item = self.grid_layout.takeAt(0)
             if item.widget():
+                item.widget().hide()   # don't leave it painted until deletion runs
                 item.widget().deleteLater()
         self.novel_cards.clear()
 
@@ -502,38 +509,45 @@ class MainWindow(QMainWindow):
         if url:
             webbrowser.open(url)
 
-    def _on_extension_chapter_update(self, novel_id: str, chapter: int, total: int):
+    def _update_card(self, novel_id: str):
+        """Re-read one novel and refresh its card in place."""
+        card = self.novel_cards.get(novel_id)
+        novel = self.repo.get_by_id(novel_id)
+        if card and novel:
+            card.set_novel(novel)
+        return novel
+
+    def _on_extension_chapter_update(self, novel_id: str, chapter: str):
         """Slot called (on the main thread) when the browser extension updates progress."""
-        if novel_id in self.novel_cards:
-            self.novel_cards[novel_id].update_progress(chapter, total or None)
-        self.statusbar.showMessage(
-            f"Extension updated chapter → {chapter}", 3000
-        )
+        self._update_card(novel_id)
+        self.statusbar.showMessage(f"Extension updated chapter → {chapter}", 3000)
 
     def _on_chapter_plus(self, novel_id: str):
         novel = self.repo.get_by_id(novel_id)
         if novel:
-            novel.current_chapter += 1
+            # The real next chapter from the site's list when known (2 -> 2.5
+            # -> 3, gaps skipped, chapter 0 first from Not started), otherwise
+            # the next whole chapter.
+            next_chapter = novel.next_chapter
             # Records last_read and read_count the same way the browser
             # extension does
-            self.repo.update_chapter_progress(novel_id, novel.current_chapter, increment_read=True)
-            # Update card UI without full refresh
-            if novel_id in self.novel_cards:
-                self.novel_cards[novel_id].update_progress(
-                    novel.current_chapter, novel.total_chapters
-                )
-            self.statusbar.showMessage(f"Updated '{novel.title}' to chapter {novel.current_chapter}", 3000)
+            self.repo.update_chapter_progress(novel_id, next_chapter, increment_read=True)
+            self._update_card(novel_id)
+            self.statusbar.showMessage(f"Updated '{novel.title}' to chapter {next_chapter}", 3000)
 
     def _start_novelfire_refresh(self):
-        """On startup, silently re-scrape all Novelfire/NovelPhoenix novels to pull in
-        the latest chapter count and status, then update the DB and each card."""
+        """On startup, silently re-scrape Novelfire, NovelPhoenix and Flame
+        Comics novels to pull in the latest chapter, chapter list and status,
+        then update each card. Novels the site already marks Completed are
+        skipped: they don't get new chapters."""
         if not self.repo:
             return
         all_novels = self.repo.get_all()
-        AUTO_REFRESH_DOMAINS = ("novelfire", "novelphoenix")
+        AUTO_REFRESH_DOMAINS = ("novelfire", "novelphoenix", "flamecomics")
         novelfire_novels = [
             n for n in all_novels
             if n.source_url and any(d in n.source_url.lower() for d in AUTO_REFRESH_DOMAINS)
+            and n.site_status != "completed"
         ]
         if not novelfire_novels:
             return
@@ -546,36 +560,40 @@ class MainWindow(QMainWindow):
         self.refresh_worker.finished.connect(self._on_refresh_finished)
         self.refresh_worker.start()
 
-    def _on_novel_refreshed(self, novel_id: str, total_chapters: int, site_status: str, synopsis: str):
+    def _on_novel_refreshed(self, novel_id: str, result):
         """Called (on main thread) for each novel the refresh worker finishes.
-        Updates the novel's site data only: never your current chapter, never
-        last_read, and never a status you set to Dropped or Planned."""
+        Shows the new site data on the card right away; the save happens once,
+        for all novels, when the refresh finishes (see _flush_refresh).
+        Updates site data only: never your current chapter, never last_read,
+        and never a status you set to Dropped or Planned."""
         novel = self.repo.get_by_id(novel_id)
-        if not novel:
+        if not novel or not apply_scrape_result(novel, result):
             return
+        self._pending_refresh[novel_id] = result
+        card = self.novel_cards.get(novel_id)
+        if card:
+            card.set_novel(novel)
+            card.mark_updated()
+        if len(self._pending_refresh) >= 25:
+            self._flush_refresh()  # bound what an interrupted refresh could lose
 
-        changed = False
-        if total_chapters and total_chapters != novel.total_chapters:
-            novel.total_chapters = total_chapters
-            changed = True
-        if apply_site_status(novel, site_status):
-            changed = True
-        if synopsis and synopsis != novel.synopsis:
-            novel.synopsis = synopsis
-            changed = True
-
-        if changed:
-            self.repo.update(novel)
-            card = self.novel_cards.get(novel_id)
-            if card:
-                card.update_latest_chapter(novel.total_chapters or 0)
-                card.update_status(novel.status)
-                card.mark_updated()
+    def _flush_refresh(self) -> int:
+        """Save pending auto-refresh results in one write. Each novel is
+        re-read first, so progress the extension recorded (or an edit you
+        saved) while the refresh was running isn't overwritten."""
+        pending, self._pending_refresh = self._pending_refresh, {}
+        to_save = []
+        for novel_id, result in pending.items():
+            novel = self.repo.get_by_id(novel_id)
+            if novel and apply_scrape_result(novel, result):
+                to_save.append(novel)
+        return self.repo.update_many(to_save)
 
     def _on_refresh_finished(self, count: int):
+        self._flush_refresh()
         msg = (
-            f"Auto-refresh complete — {count} novel(s) updated."
-            if count else "Auto-refresh complete — no changes found."
+            f"Auto-refresh complete — {count} novel(s) checked."
+            if count else "Auto-refresh complete — no novels could be checked."
         )
         self.statusbar.showMessage(msg, 6000)
 
@@ -618,7 +636,8 @@ class MainWindow(QMainWindow):
             self, "About Library of Yore",
             f"<h2>Library of Yore v{APP_VERSION}</h2>"
             "<p>A desktop bookmark tracker for web novels.</p>"
-            "<p>Supports: Novelfire, NovelPhoenix, Wuxiaworld, FreeWebNovel, NovelUpdates</p>"
+            "<p>Supports: Novelfire, NovelPhoenix, Wuxiaworld, FreeWebNovel, NovelUpdates, "
+            "Flame Comics (novels and manga)</p>"
             "<p>Built with Python and PyQt6. Stored locally — no database server required.</p>"
             f"<p><b>Browser Extension API:</b> localhost:{api_server.PORT}</p>"
         )
@@ -668,6 +687,8 @@ class MainWindow(QMainWindow):
     def closeEvent(self, event):
         if self._force_quit:
             # Real quit — clean up and exit
+            if self._pending_refresh:
+                self._flush_refresh()
             from database.connection import close_db
             close_db()
             event.accept()

@@ -2,6 +2,38 @@
 
 All notable changes to Library of Yore.
 
+## [2.1.0] - 2026-09-28
+
+Decimal chapters, a real "Not started" state, progress based on each site's actual chapter list, and **Flame Comics** support for both web novels and manga.
+
+> **Library format change.** Your library is converted automatically the first time 2.1.0 opens. Versions before 2.1.0 can't read the converted file, so keep the dated copies in `backups\` if you might go back.
+
+### Added
+- **Flame Comics (flamecomics.xyz), novels and manga.** Paste a `/novel/N` or `/series/N` link (a chapter link works too). The scraper reads the page's embedded data, which includes every chapter, locked ones too, instead of the page text: flattened text runs a chapter number into its price ("Chapter 621" + "50 embers" reads as "Chapter 62150 embers").
+- **Browser extension support for Flame Comics.** Flame's chapter links carry no chapter number, so the number comes from the page title. Flame also changes chapters without reloading the page (Previous/Next), which the extension previously couldn't see at all: it now watches for in-page chapter changes on every supported site.
+- **Novel / Manga type** on every entry (set automatically for Flame, editable in the dialog), shown as a MANGA tag on cards. Title-based matching only considers entries of the same type, so a manhwa chapter never updates the novel of the same name.
+- **Chapter lists.** Where a site provides its full chapter list (Flame Comics), it's stored compactly as ranges (`"0.01,1-755"`, not 756 numbers) and progress follows it: +1 goes 2 → 2.5 → 3 and skips gaps; "chapters behind" and % count real entries, so chapter 0, decimals, missing numbers and lists that start part-way are all handled.
+- **Locked chapters** (Flame's paid chapters) are counted: still "behind", with the locked count shown separately (card tooltip, Excel export).
+- **Excel export** columns: Type, Latest Chapter, Chapters Behind, Locked Behind.
+- `utils/chapters.py`: one place for chapter parsing, range storage and progress, with tests.
+
+### Changed
+- **Chapter numbers are decimals** everywhere: model, Add/Edit dialog, API, extension. Stored as canonical strings ("12", "2.5", "0.01") and compared exactly, never as floats.
+- **"Not started" is its own state.** An empty Current Chapter means not started; chapter 0 is a real chapter. Existing entries at 0 are converted to Not started (the old format couldn't tell the two apart).
+- **"Total chapters" is now "Latest chapter"**, the highest chapter number the site lists. Before, scrapers returned a chapter *count*, so a novel with chapters 0-755 ("756 Chapters") was never "up to date" after reading 755.
+- **+1** records the real next chapter from the site's list when known, otherwise the next whole chapter.
+- **Startup auto-refresh** now includes Flame Comics, skips titles the site marks Completed, and saves all changes in one write instead of rewriting the file once per novel. It re-reads each novel before saving, so progress recorded meanwhile isn't overwritten.
+- **Extension progress is forward-only and exact.** The app decides with exact decimal comparison; any chapter (including 0) counts from Not started. A number read from a URL like `chapter-2-5` is marked ambiguous: kept as 2.5 only if the site's list has 2.5, otherwise recorded as chapter 2.
+- **App logo is easier to see.** The icon (window, taskbar, tray) is now cropped to the logo's circle with a clean edge instead of a fuzzy dark margin, so the badge fills its space; new sizes 24 px added. The sidebar logo is larger (46 px, was 30 px). The full-size artwork is kept as `assets/logo.png`; the cropped version is `assets/logo_icon.png`.
+- The API's `/progress` accepts decimal chapters; novel data returned by the API now includes `latest_chapter`, `next_chapter`, `chapters_behind`, `locked_behind` and `content_type` (`total_chapters` is kept as an alias of `latest_chapter`).
+
+### Fixed
+- **Decimal chapters were garbled or lost.** Qt signals typed as int turn any float (even 2.0) into a garbage number without an error; chapter signals now carry strings or whole scrape results. The extension's `parseInt` turned "2.5" into 2.
+- **Shared chapter parser** (used by the five text-based scrapers): "Chapter 45.5" became 45; any word starting with "ch" after a number matched ("Reads 2024 chess" gave 2024); the first match on the page won even when it was a count or someone else's chapter; and as a last resort it took the biggest number anywhere on the page. It now keeps decimals, prefers an explicit "Latest Chapter N", accepts only whole-word "N Chapters", reads chapter-link labels by highest number regardless of page order, ignores Prologue/Extra/Epilogue labels, and returns nothing rather than a guess.
+- NovelUpdates' fallback took the first number in any info row mentioning "chapter".
+- **Card layout:** the status row was squeezed until badges were clipped ("ONGOING" showed as "NGOIN") and long titles ran into the cover. Cards are now a little taller, titles take exactly two lines (ending in "…" if longer; the full title is in the tooltip), the status badge is never squeezed, and the chapter text shortens itself ("Ch 1234.5 / 2100.5" → "1234.5 / 2100.5") when space is tight. The MANGA tag moved onto the cover's top-left corner, styled neutrally so it reads on any cover.
+- **Status badge colors were wrong.** Qt reads 8-digit hex colors as #AARRGGBB, not CSS's #RRGGBBAA, so tinted colors built by appending an alpha came out as different colors (the blue Ongoing badge rendered olive green). All tinted colors now use rgba().
+
 ## [2.0.2] - 2026-09-28
 
 Bug-fix release. No new features and no change to the library file format beyond one added field; 2.0.x libraries open as-is.

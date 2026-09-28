@@ -49,7 +49,7 @@ class ImportWizard(QDialog):
         layout.setContentsMargins(28, 28, 28, 24)
 
         logo_label = QLabel()
-        logo_pixmap = QPixmap(get_asset_path("logo.png"))
+        logo_pixmap = QPixmap(get_asset_path("logo_icon.png"))
         if not logo_pixmap.isNull():
             logo_label.setPixmap(logo_pixmap.scaled(
                 72, 72, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation

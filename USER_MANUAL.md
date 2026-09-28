@@ -1,8 +1,8 @@
 # Library of Yore — User Manual
 
-**Version 2.0.2**
+**Version 2.1.0**
 
-A complete guide to installing, using, and troubleshooting Library of Yore — your personal desktop web novel tracker.
+A complete guide to installing, using, and troubleshooting Library of Yore, your personal desktop tracker for web novels and manga.
 
 ---
 
@@ -95,7 +95,7 @@ On the very first launch, Library of Yore checks whether a local library file (`
 
 ### Typical Case — Fresh Install, No Previous MongoDB Library
 
-The main window opens immediately with an empty library, and Novelfire and NovelPhoenix novels (once you've added some) begin auto-refreshing in the background on future launches (see [Section 9](#9-auto-refresh-on-startup)). Skip ahead to [Section 5](#5-adding-a-novel).
+The main window opens immediately with an empty library, and Novelfire, NovelPhoenix and Flame Comics titles (once you've added some) begin auto-refreshing in the background on future launches (see [Section 9](#9-auto-refresh-on-startup)). Skip ahead to [Section 5](#5-adding-a-novel).
 
 ### If an Existing MongoDB Library Is Found
 
@@ -125,12 +125,13 @@ This is the fastest way to add a novel with full metadata.
    - Title
    - Author
    - Cover image
-   - Total chapters (supports any number, including 1000+ chapter series)
+   - Latest chapter (the highest chapter number the site lists, decimals included)
+   - For Flame Comics: the full chapter list, which chapters are locked, and whether it's a novel or manga
    - Synopsis (any leading "Summary" or "Description" label is stripped automatically)
    - Genres
    - Status (Ongoing / Completed / Hiatus)
 5. A green confirmation line appears below the URL field — no pop-up dialog
-6. Enter your **Current Chapter** — where you left off
+6. Enter your **Current Chapter**, the last chapter you read (decimals such as `2.5` are fine). Leave it empty if you haven't started: that's different from chapter 0
 7. Adjust any fields if needed
 8. Click **Save Novel**
 
@@ -143,8 +144,12 @@ This is the fastest way to add a novel with full metadata.
 | Wuxiaworld | `https://www.wuxiaworld.com/novel/renegade-immortal` |
 | FreeWebNovel | `https://freewebnovel.com/novel/lord-of-the-mysteries` |
 | NovelUpdates | `https://www.novelupdates.com/series/lord-of-the-mysteries/` |
+| Flame Comics (novel) | `https://flamecomics.xyz/novel/8` |
+| Flame Comics (manga) | `https://flamecomics.xyz/series/2` |
 
 > **Note:** NovelUpdates is a catalog site. It provides metadata but does not host chapters directly.
+
+> **Flame Comics:** pasting a chapter link (e.g. `https://flamecomics.xyz/novel/8/f48067c3fe28e0a0`) works too; it's turned into the title's main page. Flame hosts some titles as both a novel and a manhwa: add each as its own entry. Manga are tracked for progress only; pages aren't downloaded.
 
 ### Method 2 — Manual Entry
 
@@ -155,7 +160,8 @@ Use this when a site isn't supported or scraping fails.
 3. Fill in:
    - **Title** *(required)*
    - Author
-   - Current chapter / Total chapters
+   - Current chapter (empty = not started) / Latest chapter
+   - Type (Novel or Manga)
    - Status, Rating, Genres
    - Synopsis and personal Notes
 4. Optionally add a cover (see below)
@@ -218,15 +224,17 @@ Each novel card shows:
 | Red | Dropped |
 | Purple | Planned |
 
-- **Current chapter** (e.g. "Ch. 120")
-- **Progress bar**: current chapter ÷ total chapters
+- **MANGA tag** for manga entries, so a novel and its manhwa are easy to tell apart
+- **Chapter**: current / latest, e.g. "Ch 120 / 621" ("Ch – / 621" when not started). Shown in green when you're up to date
+- **Progress bar**: how far through the site's chapters you are
+- **Tooltip** (hover the card): chapters behind, how many of those are locked, and how many chapters the site lists
 
 ### Card Actions
 
 | Action | How |
 |--------|-----|
 | Open full details / edit | Left-click the card |
-| Increment chapter by 1 | Click the **+1** button on the card |
+| Mark the next chapter read | Click the **+1** button on the card (hover it to see which chapter it will record) |
 | Open source URL in browser | Click the **Link** button |
 | Edit or Delete | Right-click for context menu |
 
@@ -253,9 +261,11 @@ To delete a novel: right-click its card → **Delete**. This also removes its co
 
 ### Updating Your Chapter
 
-**Quick (one click):** Click the **+1** button on any card. The chapter count increments and the last-read timestamp updates.
+**Quick (one click):** Click the **+1** button on any card. It records the *next* chapter and updates the last-read timestamp:
+- When the site's chapter list is known (Flame Comics), +1 follows that list: 2 → 2.5 → 3, skips numbers the site doesn't have, and from **Not started** goes to the first chapter the site lists (0 or 0.01 if it has one)
+- Otherwise it goes to the next whole chapter (45.5 → 46), and from Not started to chapter 1
 
-**Precise:** Open the novel → change the **Current Chapter** number → Save.
+**Precise:** Open the novel → change the **Current Chapter** number → Save. Decimals are allowed; clear the field to mark the novel as not started.
 
 **Automatic (browser extension):** If you have the browser extension installed, your chapter updates as you read in the browser — see [Section 10](#10-browser-extension).
 
@@ -263,8 +273,13 @@ To delete a novel: right-click its card → **Delete**. This also removes its co
 
 | Indicator | Meaning |
 |-----------|---------|
-| Progress bar | Visual fill: `current ÷ total` |
+| Progress bar | With a chapter list: chapters read ÷ chapters the site lists (so gaps, chapter 0 and decimals count correctly). Without one: current ÷ latest |
+| Chapters behind | How many chapters are left (card tooltip, Excel export) |
+| Locked | How many of the chapters left are locked/paid on the site (Flame Comics); they still count as "behind" |
+| Up to date | Nothing left to read: the chapter label turns green |
 | Percentage | Exact completion %, shown in the browser extension popup and the Excel export |
+
+> **Upgrading from 2.0.x:** your library is converted automatically the first time 2.1.0 opens. Novels that were at chapter 0 become **Not started**, and the old "total chapters" becomes the latest chapter. After that, the library can't be opened by an older version: keep the dated copies in `backups\` if you might go back.
 
 ### Reading History
 
@@ -278,13 +293,14 @@ Other edits and the startup auto-refresh don't change either value, so sorting b
 
 ## 9. Auto-Refresh on Startup
 
-Every time Library of Yore opens, it silently re-scrapes all **Novelfire and NovelPhoenix** novels in the background to check for new chapters, status changes, or updated synopsis text. No action is required — it happens automatically.
+Every time Library of Yore opens, it silently re-scrapes your **Novelfire, NovelPhoenix and Flame Comics** titles in the background to check for new chapters, status changes, or updated synopsis text. No action is required: it happens automatically. Titles the site already marks **Completed** are skipped, since they won't get new chapters.
 
 ### What Gets Updated
 
 | Field | Updated? |
 |-------|---------|
-| Total chapters | ✅ Yes — reflects the latest published chapter count |
+| Latest chapter | ✅ Yes: the highest chapter the site lists |
+| Chapter list and locked chapters | ✅ Yes (Flame Comics) |
 | Status | ✅ Yes: picks up Ongoing → Completed transitions automatically. A novel you marked **Dropped** or **Planned** keeps your status |
 | Synopsis | ✅ Yes — pulls the current synopsis text from the novel page |
 | Cover image | ❌ No — covers are not re-downloaded on auto-refresh |
@@ -302,16 +318,14 @@ While auto-refresh is running, the status bar at the bottom of the window shows:
 
 When complete, it changes to:
 
-> *Auto-refresh complete — 2 novel(s) updated.*
+> *Auto-refresh complete — 3 novel(s) checked.*
 
-or
-
-> *Auto-refresh complete — no changes found.*
+Cards that changed show the ✦ Updated badge. All changes are saved together once the refresh finishes.
 
 ### Notes
 
 - Auto-refresh runs entirely in the background — the UI stays fully responsive
-- As of v1.4.0, Novelfire and NovelPhoenix novels are refreshed. Support for other sources is planned in a future release
+- Novelfire, NovelPhoenix and Flame Comics titles are refreshed. Wuxiaworld, FreeWebNovel and NovelUpdates entries are only updated when you click **Fetch Metadata** in the Edit dialog
 - If a scrape fails for an individual novel (network error, site unavailable), it is silently skipped and the rest continue
 - Novels are refreshed one at a time with a short pause between them, so a large library takes a little while to finish
 
@@ -321,6 +335,8 @@ or
 
 The **Library of Yore Browser Extension** tracks the chapter you are reading in your browser and automatically updates your progress in the app — no clicking +1, no manual entry.
 
+It works on **Novelfire**, **NovelPhoenix**, **Wuxiaworld**, **FreeWebNovel** and **Flame Comics** (both novels and manga). NovelUpdates is a catalog site with no chapters to read, so there's nothing to track there.
+
 > **Download:** The extension is available in the [Releases](https://github.com/NurAbir/Library-of-Yore/releases) section on GitHub. Download `Library.of.Yore.Browser.Extension.zip` from the latest release.
 
 ### How It Works
@@ -329,9 +345,13 @@ The extension communicates with Library of Yore through a small local API server
 
 1. Reads the current page URL and the novel title
 2. Matches the URL against the novels stored in your library (same site, and the saved novel page's path must lead into the chapter's path). Only if that fails does it try the title, among novels saved from the same site
-3. Extracts the chapter number from the URL or page content
+3. Extracts the chapter number from the URL or page content (on Flame Comics, from the page title, because Flame's chapter links contain no number). Decimal chapters such as 2.5 are kept. A number read from a URL like `chapter-2-5` could mean 2.5 or part 5 of chapter 2: the app keeps 2.5 only if the site's chapter list has it, otherwise it records chapter 2
 4. If **Auto-sync** is on (it's off by default, see the popup's Settings) and the novel was matched **by URL**, sends a progress update when the chapter is newer than what is stored. A match by title alone is shown in the popup with a note, and waits for you to press **Sync**
 5. The app updates the card immediately: chapter label and progress bar refresh in real time
+
+Progress only ever moves forward: opening an older chapter never lowers what's stored. From **Not started**, any chapter counts, including chapter 0.
+
+On sites that change chapters without reloading the page (Flame Comics' Previous/Next buttons), the extension notices each change and reports the new chapter too.
 
 The card updates **live** even if the main window is hidden in the system tray.
 
@@ -368,7 +388,7 @@ Click the extension icon in your browser toolbar. The popup shows:
 
 ### Matching Novels
 
-For the extension to update a novel, that novel must be saved in your library with a **Source URL** that matches the site you are reading on. The extension matches by domain and URL path — for example, if you saved `https://novelfire.net/book/shadow-slave`, reading any chapter URL under that path will be recognised as the same novel. The same applies to NovelPhoenix, e.g. `https://novelphoenix.com/novel/shadow-slave`.
+For the extension to update a novel, that novel must be saved in your library with a **Source URL** that matches the site you are reading on. The extension matches by domain and URL path — for example, if you saved `https://novelfire.net/book/shadow-slave`, reading any chapter URL under that path will be recognised as the same novel. The same applies to NovelPhoenix, e.g. `https://novelphoenix.com/novel/shadow-slave`, and to Flame Comics, e.g. `https://flamecomics.xyz/series/2` for the manhwa and `https://flamecomics.xyz/novel/8` for the novel (a manhwa chapter never updates the novel entry, and vice versa).
 
 If a novel is not being detected, open the Edit dialog and confirm the Source URL is set to the novel's main page on the supported site.
 
@@ -451,11 +471,14 @@ Click **Export Excel** in the toolbar. Choose a save location. The file opens in
 | Title | Novel title |
 | Author | Author name |
 | Status | ongoing / completed / hiatus / dropped / planned |
-| Current Chapter | Your last read chapter |
-| Total Chapters | Known total (blank if unknown) |
+| Type | Novel / Manga |
+| Current Chapter | Your last read chapter ("Not started" if none) |
+| Latest Chapter | Highest chapter the site lists (blank if unknown) |
+| Chapters Behind | Chapters left to read (blank if unknown) |
+| Locked Behind | How many of those are locked on the site |
 | % Complete | Calculated completion percentage |
 | Source URL | Link to the novel page |
-| Source | novelfire / novelphoenix / wuxiaworld / freewebnovel / novelupdates / manual |
+| Source | novelfire / novelphoenix / wuxiaworld / freewebnovel / novelupdates / flamecomics / manual |
 | Last Read | ISO 8601 timestamp |
 | Date Added | When you first added it |
 | Rating | Your 0–10 rating |
@@ -566,7 +589,8 @@ python main.py
 2. Implement `SOURCE_NAME`, `DOMAIN_PATTERNS`, and `scrape(url)`
 3. Register it in `scrapers/__init__.py` → `get_scraper_for_url()`
 4. Add `--hidden-import scrapers.mysite` in **all three** build paths — `build.bat`, `build_release.bat`, and `build.py`'s `COMMON_HIDDEN_IMPORTS` list. These are maintained separately and drift easily; a scraper missing from just one still works when run from source but silently breaks in that one built `.exe`
-5. If the site should also support the browser extension's live chapter tracking, add its domain to `Library of Yore Browser Extension/manifest.json` (content-script matches), a detector function in `content.js`, and the domain to `background.js`'s `novelHosts` list
+5. Set `result.latest_chapter` as a chapter string (use `utils.chapters.parse_chapter`). If the site shows its full chapter list, also fill `result.chapter_list` (and `locked_list`) so progress follows the real list; see `scrapers/flamecomics.py`
+6. If the site should also support the browser extension's live chapter tracking, add its domain to `Library of Yore Browser Extension/manifest.json` (content-script matches), a detector function in `content.js`, and the domain to `background.js`'s `novelHosts` list
 
 ---
 
@@ -726,6 +750,9 @@ Comfortably into the thousands — a personal reading list is tiny by JSON-file 
 **Q: The exe is slow to open. Is something wrong?**
 No — this is expected on the first launch of the single-file build. PyInstaller unpacks itself to `%TEMP%`. It's faster from the second launch onward. Use `python build.py --folder` for a faster-starting folder build if you prefer.
 
+**Q: Does it work with manga?**
+Yes, on Flame Comics. Add a series link such as `https://flamecomics.xyz/series/2`: it's saved as a **Manga** entry (with a MANGA tag on its card), the full chapter list is fetched, and the browser extension tracks the chapter you're reading, including when you use Flame's Previous/Next buttons. Progress is tracked; chapter pages aren't downloaded. If you follow both a novel and its manhwa (e.g. Omniscient Reader's Viewpoint), add each separately: they're kept apart and never update each other.
+
 **Q: Can I add support for other novel sites?**
 Yes. See [Section 16 — Adding a New Scraper](#adding-a-new-scraper).
 
@@ -745,7 +772,10 @@ No. Close the window and Library of Yore hides to the system tray. The API serve
 From the [Releases](https://github.com/NurAbir/Library-of-Yore/releases) page on GitHub. Download `Library.of.Yore.Browser.Extension.zip` from the latest release and follow the instructions in [Section 10](#10-browser-extension).
 
 **Q: Which novels get auto-refreshed on startup?**
-As of v1.4.0, **Novelfire** and **NovelPhoenix** novels are auto-refreshed. Support for additional sources is planned in a future release.
+**Novelfire**, **NovelPhoenix** and **Flame Comics** titles, except those the site marks Completed.
+
+**Q: Why does a Flame title show chapters as "behind" that I can't read for free?**
+Locked (paid) chapters still exist on the site, so they count as behind. The card tooltip shows how many of them are locked, e.g. "12 behind · 8 locked".
 
 **Q: Can I turn off auto-refresh?**
 There is no toggle yet. The refresh runs in the background and is non-intrusive — the UI remains fully responsive throughout. A setting to disable it is planned for a future release.
@@ -759,6 +789,6 @@ Make sure you replaced `scrapers/novelfire.py` with the v1.3.0 version and rebui
 
 **Happy Reading!**
 
-*Library of Yore v2.0.2*
+*Library of Yore v2.1.0*
 
 </div>

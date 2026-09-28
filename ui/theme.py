@@ -52,16 +52,43 @@ STATUS_COLORS = {
 }
 
 
+def rgba(color: str, alpha_hex: str) -> str:
+    """"#RRGGBB" plus a two-digit hex alpha ("26" = 15%) as a Qt rgba() value.
+
+    Qt style sheets read 8-digit hex colors as #AARRGGBB, not the CSS
+    #RRGGBBAA, so appending the alpha ("{color}26") silently produced a
+    different color: the blue "ongoing" badge came out olive green."""
+    c = color.lstrip("#")
+    r, g, b = int(c[0:2], 16), int(c[2:4], 16), int(c[4:6], 16)
+    return f"rgba({r}, {g}, {b}, {int(alpha_hex, 16)})"
+
+
 def status_color(status: str) -> str:
     return STATUS_COLORS.get(status, TEXT_MUTED)
+
+
+def type_tag_style() -> str:
+    """The small "MANGA" tag overlaid on a cover: neutral dark glass with
+    light text, so it reads on any cover art and never competes with the
+    colour-coded status badge."""
+    return f"""
+        background-color: {rgba(BG_SUNKEN, "D9")};
+        color: {TEXT_PRIMARY};
+        border: 1px solid {rgba(TEXT_PRIMARY, "40")};
+        border-radius: 4px;
+        padding: 3px 7px;
+        font-size: 9px;
+        font-weight: 700;
+        letter-spacing: 0.8px;
+    """
 
 
 def status_badge_style(status: str) -> str:
     color = status_color(status)
     return f"""
-        background-color: {color}26;
+        background-color: {rgba(color, "26")};
         color: {color};
-        border: 1px solid {color}55;
+        border: 1px solid {rgba(color, "55")};
         border-radius: {RADIUS_SM}px;
         padding: 3px 8px;
         font-size: 10px;
@@ -108,7 +135,7 @@ _INPUTS = f"""
         border: 1px solid {BORDER};
         border-radius: {RADIUS_SM}px;
         padding: 7px 10px;
-        selection-background-color: {ACCENT}55;
+        selection-background-color: {rgba(ACCENT, "55")};
     }}
     QLineEdit:hover, QTextEdit:hover, QComboBox:hover {{ border: 1px solid {BORDER_STRONG}; }}
     QLineEdit:focus, QTextEdit:focus, QPlainTextEdit:focus,
@@ -120,7 +147,7 @@ _INPUTS = f"""
         background-color: {BG_SURFACE_2};
         color: {TEXT_PRIMARY};
         border: 1px solid {BORDER_STRONG};
-        selection-background-color: {ACCENT}33;
+        selection-background-color: {rgba(ACCENT, "33")};
         outline: none;
     }}
 """
@@ -138,7 +165,7 @@ _BUTTONS = f"""
     QPushButton:hover {{ background-color: {BG_SURFACE_3}; border-color: {TEXT_MUTED}; }}
     QPushButton:pressed {{ background-color: {BG_SURFACE}; }}
     QPushButton:disabled {{ color: {TEXT_MUTED}; background-color: {BG_SURFACE}; border-color: {BORDER}; }}
-    QPushButton:checkable:checked {{ background-color: {ACCENT}22; border-color: {ACCENT}; color: {ACCENT}; }}
+    QPushButton:checkable:checked {{ background-color: {rgba(ACCENT, "22")}; border-color: {ACCENT}; color: {ACCENT}; }}
 
     QPushButton#primaryButton, QPushButton#saveButton {{
         background-color: {ACCENT};
@@ -180,7 +207,7 @@ _MISC = f"""
         border-radius: 4px;
         background: {BG_SUNKEN};
     }}
-    QCheckBox::indicator:hover {{ border: 1px solid {ACCENT}88; }}
+    QCheckBox::indicator:hover {{ border: 1px solid {rgba(ACCENT, "88")}; }}
     QCheckBox::indicator:checked {{
         background: {ACCENT};
         border: 1px solid {ACCENT};
@@ -243,11 +270,11 @@ def main_window_stylesheet() -> str:
         QMenuBar::item:selected {{ background-color: {BG_SURFACE_2}; color: {TEXT_PRIMARY}; }}
         QMenu {{ background-color: {BG_SURFACE_2}; color: {TEXT_PRIMARY}; border: 1px solid {BORDER_STRONG}; border-radius: {RADIUS_SM}px; padding: 4px; }}
         QMenu::item {{ padding: 6px 20px; border-radius: {RADIUS_SM}px; }}
-        QMenu::item:selected {{ background-color: {ACCENT}22; color: {ACCENT}; }}
+        QMenu::item:selected {{ background-color: {rgba(ACCENT, "22")}; color: {ACCENT}; }}
         QMenu::separator {{ height: 1px; background: {BORDER}; margin: 4px 8px; }}
         QStatusBar {{ background-color: {BG_SURFACE}; color: {TEXT_MUTED}; border-top: 1px solid {BORDER}; }}
         QSplitter::handle {{ background-color: {BORDER}; }}
-        QSplitter::handle:hover {{ background-color: {ACCENT}55; }}
+        QSplitter::handle:hover {{ background-color: {rgba(ACCENT, "55")}; }}
     """
 
 

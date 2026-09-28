@@ -1,10 +1,10 @@
 <div align="center">
 
-<img src="assets/logo.png" width="120" alt="Library of Yore Logo">
+<img src="assets/logo_icon.png" width="120" alt="Library of Yore Logo">
 
 # Library of Yore
 
-**A desktop bookmark tracker for web novels.**
+**A desktop bookmark tracker for web novels and manga.**
 
 Built with Python and PyQt6 — stored locally, no database server required.
 
@@ -12,7 +12,7 @@ Built with Python and PyQt6 — stored locally, no database server required.
 [![PyQt6](https://img.shields.io/badge/PyQt6-6.4+-green.svg)](https://riverbankcomputing.com/software/pyqt)
 [![Storage](https://img.shields.io/badge/Storage-Local%20JSON-lightgrey.svg)]()
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-2.0.2-orange.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/Version-2.1.0-orange.svg)](CHANGELOG.md)
 
 </div>
 
@@ -20,11 +20,11 @@ Built with Python and PyQt6 — stored locally, no database server required.
 
 ## Description
 
-**Library of Yore** is a desktop application for tracking your web novel reading progress. Paste a novel URL and it automatically fetches the title, author, cover, synopsis, and chapter count. Track where you left off, filter by status, and export your library to Excel.
+**Library of Yore** is a desktop application for tracking your web novel and manga reading progress. Paste a novel or series URL and it automatically fetches the title, author, cover, synopsis, and latest chapter. Track where you left off, filter by status, and export your library to Excel.
 
-A companion **browser extension** lets your reading progress update automatically as you read — even when the app window is closed, since Library of Yore runs quietly in the system tray.
+A companion **browser extension** lets your reading progress update automatically as you read, on every supported reading site including **Flame Comics novels and manga**, even when the app window is closed, since Library of Yore runs quietly in the system tray.
 
-Supports **Novelfire**, **NovelPhoenix**, **Wuxiaworld**, **FreeWebNovel**, and **NovelUpdates**.
+Supports **Novelfire**, **NovelPhoenix**, **Wuxiaworld**, **FreeWebNovel**, **NovelUpdates**, and **Flame Comics** (web novels and manga).
 
 ---
 
@@ -34,9 +34,10 @@ Supports **Novelfire**, **NovelPhoenix**, **Wuxiaworld**, **FreeWebNovel**, and 
 |---------|-------------|
 | **Visual Library** | Responsive grid view with cover images, progress bars, and status badges — column count adapts to your window size |
 | **Auto-Scrape Metadata** | Paste a URL and fetch title, author, cover, synopsis, and chapter count automatically |
-| **Auto-Refresh on Startup** | Novelfire and NovelPhoenix novels are silently re-scraped in the background when the app opens — latest chapter count, status, and synopsis update automatically |
+| **Auto-Refresh on Startup** | Novelfire, NovelPhoenix and Flame Comics titles are silently re-scraped in the background when the app opens: latest chapter, chapter list, status, and synopsis update automatically |
 | **Updated Badge** | Cards that received new data during auto-refresh show a gold ✦ Updated badge |
-| **Chapter Tracking** | Track current chapter, total chapters, and completion percentage |
+| **Chapter Tracking** | Decimal chapters (2.5, 0.01), a real "Not started" state, chapters behind, and completion %. Where the site's full chapter list is known (Flame Comics), +1 and progress follow that list, including gaps, chapter 0 and locked chapters |
+| **Novels and Manga** | Each entry is a novel or a manga; a novel and its manhwa adaptation are tracked separately and never mixed up |
 | **Status Management** | Ongoing, Completed, Hiatus, Dropped, Planned. Auto-refresh never overrides a novel you marked Dropped or Planned |
 | **Search & Filter** | Filter by status, search by title/author/notes, sort by last read / rating / progress |
 | **Cover Storage** | Images stored as local files — your entire library lives in one JSON file plus a covers folder, no server required |
@@ -44,20 +45,26 @@ Supports **Novelfire**, **NovelPhoenix**, **Wuxiaworld**, **FreeWebNovel**, and 
 | **Dark Theme** | Antique-gold accent on a charcoal slate palette — easy on the eyes for long reading sessions |
 | **Opens Maximized** | Detects your screen size on launch and opens windowed full-screen, so you're never stuck with a cramped default window |
 | **System Tray** | Closing the window hides the app to the tray — the API server keeps running in the background |
-| **Browser Extension** | Auto-updates your chapter progress as you read — works even with the window hidden |
+| **Browser Extension** | Auto-updates your chapter progress as you read on Novelfire, NovelPhoenix, Wuxiaworld, FreeWebNovel and Flame Comics (novels and manga), even with the window hidden |
 | **Single-File Portable** | Distributes as one standalone `.exe` — no installation required |
 
 ---
 
 ## Supported Sites
 
-| Site | URL Example |
-|------|-------------|
-| [Novelfire](https://novelfire.net) | `https://novelfire.net/book/shadow-slave` |
-| [NovelPhoenix](https://novelphoenix.com) | `https://novelphoenix.com/novel/shadow-slave` |
-| [Wuxiaworld](https://www.wuxiaworld.com) | `https://www.wuxiaworld.com/novel/renegade-immortal` |
-| [FreeWebNovel](https://freewebnovel.com) | `https://freewebnovel.com/novel/lord-of-the-mysteries` |
-| [NovelUpdates](https://www.novelupdates.com) | `https://www.novelupdates.com/series/lord-of-the-mysteries/` |
+| Site | Type | URL Example | Extension tracking | Auto-refresh | Full chapter list |
+|------|------|-------------|:--:|:--:|:--:|
+| [Novelfire](https://novelfire.net) | Novels | `https://novelfire.net/book/shadow-slave` | ✅ | ✅ | |
+| [NovelPhoenix](https://novelphoenix.com) | Novels | `https://novelphoenix.com/novel/shadow-slave` | ✅ | ✅ | |
+| [Wuxiaworld](https://www.wuxiaworld.com) | Novels | `https://www.wuxiaworld.com/novel/renegade-immortal` | ✅ | | |
+| [FreeWebNovel](https://freewebnovel.com) | Novels | `https://freewebnovel.com/novel/lord-of-the-mysteries` | ✅ | | |
+| [NovelUpdates](https://www.novelupdates.com) | Novels (catalog) | `https://www.novelupdates.com/series/lord-of-the-mysteries/` | | | |
+| [Flame Comics](https://flamecomics.xyz) | Novels | `https://flamecomics.xyz/novel/8` | ✅ | ✅ | ✅ |
+| [Flame Comics](https://flamecomics.xyz) | Manga / manhwa | `https://flamecomics.xyz/series/2` | ✅ | ✅ | ✅ |
+
+- **Extension tracking:** the browser extension records the chapter you're reading. On Flame Comics it reads the chapter number from the page title and also catches chapter changes made with Flame's Previous/Next buttons, which don't reload the page.
+- **Full chapter list:** the app stores every chapter the site lists, so **+1** follows the real list (2 → 2.5 → 3, gaps skipped), progress counts real chapters, and locked (paid) chapters are counted separately. Other sites use the next whole chapter.
+- **Manga** are tracked for progress only (chapter pages aren't downloaded). A novel and its manhwa adaptation, such as ORV on Flame, are separate entries and never update each other.
 
 ---
 
@@ -70,7 +77,7 @@ The **Library of Yore Browser Extension** detects which chapter you are reading 
 ### How It Works
 
 1. Library of Yore runs a small local API server on `localhost:7337`
-2. The extension watches the current tab URL and detects chapter numbers
+2. The extension watches the current tab and detects the chapter number, from the URL or, on Flame Comics, from the page title. It also notices chapter changes that happen without a page reload (Flame's Previous/Next buttons)
 3. When you advance to a new chapter it sends the update to the app (with **Auto-sync** turned on in the popup's settings, and only for novels matched by their URL; otherwise press **Sync**)
 4. The app writes it to your local library file and refreshes the card — even if the main window is hidden
 
@@ -94,7 +101,7 @@ A notification balloon appears the first time you close the window to let you kn
 2. Go to `chrome://extensions/` (or `edge://extensions/`)
 3. Enable **Developer mode** (toggle, top-right)
 4. Click **Load unpacked** and select the unzipped folder
-5. The extension icon appears in your toolbar — click it to confirm it shows **Connected**
+5. The extension icon appears in your toolbar. Click it: a green dot means it's connected to the app
 
 **Firefox:**
 
@@ -127,7 +134,9 @@ Download `LibraryOfYore_Setup.exe` and run it to install to Program Files with a
 
 ### 2. First Launch
 
-The main window opens immediately — there's nothing to install or configure first. Novelfire and NovelPhoenix novels begin auto-refreshing in the background.
+The main window opens immediately — there's nothing to install or configure first. Novelfire, NovelPhoenix and Flame Comics titles begin auto-refreshing in the background.
+
+> **Upgrading to 2.1.0?** Your library is converted automatically on first launch (chapter 0 becomes "Not started"). Older versions can't open it afterwards; the dated copies in `backups\` are your way back.
 
 > **Upgrading from a version before 2.0?** If Library of Yore finds an existing MongoDB library on your machine, it offers to import it automatically on first launch (or any time from **File → Import Existing MongoDB Library…**). See the [Changelog](CHANGELOG.md).
 
@@ -234,7 +243,8 @@ libraryofyore/
 │   ├── novelphoenix.py     # NovelPhoenix.com scraper (requests + Playwright fallback)
 │   ├── wuxiaworld.py       # Wuxiaworld.com scraper
 │   ├── freewebnovel.py     # FreeWebNovel.com scraper
-│   └── novelupdates.py     # NovelUpdates.com scraper
+│   ├── novelupdates.py     # NovelUpdates.com scraper
+│   └── flamecomics.py      # Flame Comics scraper (novels + manga, reads the page's embedded chapter data)
 │
 ├── ui/
 │   ├── setup_wizard.py     # Import Wizard — only shown if a pre-2.0 MongoDB library is found
@@ -243,7 +253,8 @@ libraryofyore/
 │   └── add_novel_dialog.py # Add/Edit novel with live scraping
 │
 ├── utils/
-│   └── helpers.py          # Image download, resize, bytes-to-pixmap
+│   ├── helpers.py          # Image download, resize, bytes-to-pixmap
+│   └── chapters.py         # Chapter numbers, chapter-list ranges, progress (next / behind / %)
 │
 ├── tests/                  # pytest suite: python -m pytest tests
 └── tools/
@@ -284,6 +295,8 @@ All data is stored **locally** — nothing leaves your machine, and no database 
 | Chapters show wrong number | Update to v1.0.1+ — the 4-digit chapter bug is fixed |
 | Extension shows "Disconnected" | Make sure Library of Yore is running (check the system tray) |
 | Card not updating from extension | Confirm the novel's Source URL matches the site you are reading on, and that Auto-sync is on in the extension's settings |
+| Flame Comics chapter not detected | Save the title with its main page URL (`/novel/N` for the novel, `/series/N` for the manga), and reload the extension after updating it. The novel and the manga are separate entries |
+| Card shows chapters "behind" that I can't read for free | Locked (paid) chapters on Flame still count as behind; hover the card to see how many are locked |
 | Synopsis shows "Summary..." prefix | Update to v1.3.0 — the leading label is now stripped automatically |
 | `AttributeError: module 'numpy' has no attribute 'short'` on startup | Update to v1.4.0 — the build now excludes numpy/pandas/matplotlib, which openpyxl only used optionally and which PyInstaller was bundling incompletely |
 | Compiling `installer.iss` says exe not found even though it's there | Update to v1.4.0 — the installer script now anchors its path checks to the script's own folder instead of the compiler's working directory |

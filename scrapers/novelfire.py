@@ -136,7 +136,7 @@ class NovelfireScraper(BaseScraper):
         text_blob = soup.get_text(separator=" ", strip=True)
 
         # Use base class method — handles any digit length (fixes 4+ digit chapters e.g. 2111)
-        result.total_chapters = self._extract_chapter_number(text_blob)
+        result.latest_chapter = self._extract_chapter_number(text_blob)
 
         # Status — use targeted selectors first so synopsis words ("complete", "finished") don't
         # false-match when the full page blob is used.

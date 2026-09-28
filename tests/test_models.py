@@ -12,18 +12,18 @@ def test_update_does_not_touch_last_read():
     before = repo.get_by_id(n._id)
     assert before.last_read is None
 
-    before.total_chapters = 2000          # e.g. startup refresh found new chapters
+    before.latest_chapter = "2000"        # e.g. startup refresh found new chapters
     repo.update(before)
     assert repo.get_by_id(n._id).last_read is None
 
 
 def test_chapter_progress_sets_last_read_and_count():
     repo = NovelRepository()
-    n = Novel(title="Lord of the Mysteries", total_chapters=100)
+    n = Novel(title="Lord of the Mysteries", latest_chapter="100")
     n._id = repo.insert(n)
     repo.update_chapter_progress(n._id, 10)
     got = repo.get_by_id(n._id)
-    assert got.current_chapter == 10
+    assert got.current_chapter == "10"
     assert got.read_count == 1
     assert got.last_read is not None
     doc = repo.table.get(lambda d: d["_id"] == n._id)

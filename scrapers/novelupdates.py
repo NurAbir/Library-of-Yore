@@ -101,18 +101,17 @@ class NovelUpdatesScraper(BaseScraper):
         text_blob = soup.get_text(separator=" ", strip=True)
 
         # NovelUpdates shows "XXX Chapters" or "Completed" etc.
-        result.total_chapters = self._extract_chapter_number(text_blob)
+        result.latest_chapter = self._extract_chapter_number(text_blob)
 
         # Also look for specific NU fields
-        if not result.total_chapters:
-            # Look for "Chapters" row in the info table
+        if not result.latest_chapter:
+            # Look for a "N Chapters" value in the info table (before v2.1.0
+            # this took the first number in any row mentioning "chapter")
             for row in soup.select("#seriesinfo div, .series-info div"):
-                text = row.get_text(strip=True)
-                if "chapter" in text.lower():
-                    m = re.search(r"(\d+)", text)
-                    if m:
-                        result.total_chapters = int(m.group(1))
-                        break
+                found = self._extract_chapter_number(row.get_text(" ", strip=True))
+                if found:
+                    result.latest_chapter = found
+                    break
 
         # Status - NovelUpdates has specific status fields
         status_selectors = [

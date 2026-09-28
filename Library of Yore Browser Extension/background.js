@@ -60,6 +60,7 @@ async function findNovel(info) {
       url: info.url || info.sourceUrl || "",
       title: info.novelTitle || "",
     });
+    if (info.contentType) params.set("type", info.contentType);
     const res = await apiGet(`/find?${params.toString()}`);
     if (res.found) return { novel: res.novel, match: res.match || "url" };
     return null;
@@ -68,11 +69,22 @@ async function findNovel(info) {
   }
 }
 
+// ── Chapter numbers ──────────────────────────────────────────────────────────
+// Chapters are strings ("12", "2.5", "0.01"). null means "not started", and
+// any chapter (including 0) is newer than that. The app makes the final,
+// exact decision; this is only a pre-check to avoid pointless requests.
+
+function isNewer(a, b) {
+  if (a === null || a === undefined || a === "") return false;
+  if (b === null || b === undefined || b === "") return true;
+  return parseFloat(a) > parseFloat(b);
+}
+
 // ── Update badge ─────────────────────────────────────────────────────────────
 
 async function updateBadge(chapter) {
   if (chapter) {
-    chrome.action.setBadgeText({ text: String(chapter) });
+    chrome.action.setBadgeText({ text: String(chapter).slice(0, 4) });
     chrome.action.setBadgeBackgroundColor({ color: "#d4af37" });
   } else {
     chrome.action.setBadgeText({ text: "" });
@@ -116,12 +128,13 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
           appOnline &&
           libraryNovel &&
           libraryMatch === "url" &&
-          info.chapter > libraryNovel.current_chapter
+          isNewer(info.chapter, libraryNovel.current_chapter)
         ) {
           try {
             await apiPost("/progress", {
               novel_id: libraryNovel.id,
-              chapter: info.chapter,
+              chapter: String(info.chapter),
+              ambiguous: !!info.ambiguous,
             });
             // Refresh library novel data
             const updated = await findNovel(info);
@@ -149,11 +162,12 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 
       // Popup requests manual sync
       case "SYNC_NOW": {
-        const { novelId, chapter } = msg;
+        const { novelId, chapter, ambiguous } = msg;
         try {
           const result = await apiPost("/progress", {
             novel_id: novelId,
-            chapter,
+            chapter: String(chapter),
+            ambiguous: !!ambiguous,
           });
           // Refresh the stored library novel
           const state = await getState();
@@ -218,7 +232,7 @@ async function getSettings() {
 chrome.tabs.onActivated.addListener(async ({ tabId }) => {
   try {
     const tab = await chrome.tabs.get(tabId);
-    const novelHosts = ["novelfire.net", "novelphoenix.com", "freewebnovel.com", "wuxiaworld.com", "novelupdates.com"];
+    const novelHosts = ["novelfire.net", "novelphoenix.com", "freewebnovel.com", "wuxiaworld.com", "novelupdates.com", "flamecomics.xyz"];
     const isNovelSite = novelHosts.some((h) => tab.url?.includes(h));
     if (!isNovelSite) {
       await updateBadge(null);

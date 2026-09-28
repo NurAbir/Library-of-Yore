@@ -3,7 +3,7 @@ import re
 import requests
 from bs4 import BeautifulSoup
 
-from scrapers.base import BaseScraper, ScraperResult
+from scrapers.base import BaseScraper, ScraperResult, latest_from_labels
 from config import USER_AGENT, REQUEST_TIMEOUT
 
 
@@ -99,20 +99,16 @@ class FreeWebNovelScraper(BaseScraper):
 
         # Chapter count
         text_blob = soup.get_text(separator=" ", strip=True)
-        result.total_chapters = self._extract_chapter_number(text_blob)
+        result.latest_chapter = self._extract_chapter_number(text_blob)
 
         # Also try chapter list count
-        if not result.total_chapters:
+        if not result.latest_chapter:
             chapter_links = soup.select(".chapter-list a, .manga-chapter a")
             if chapter_links:
-                nums = []
-                for link in chapter_links:
-                    text = link.get_text(strip=True)
-                    m = re.search(r"[Cc]hapter\s*(\d+)", text)
-                    if m:
-                        nums.append(int(m.group(1)))
-                if nums:
-                    result.total_chapters = max(nums)
+                # highest numbered chapter label, decimals kept
+                result.latest_chapter = latest_from_labels(
+                    link.get_text(strip=True) for link in chapter_links
+                )
 
         # Status
         result.status = self._normalize_status(text_blob)
