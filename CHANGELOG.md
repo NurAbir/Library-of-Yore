@@ -2,6 +2,37 @@
 
 All notable changes to Library of Yore.
 
+## [2.0.2] - 2026-09-28
+
+Bug-fix release. No new features and no change to the library file format beyond one added field; 2.0.x libraries open as-is.
+
+### Fixed
+- **Library file could be corrupted by a background read.** The browser-extension API thread read `library.json` without the lock, through the same open file handle the app writes with. A read landing mid-save moved that shared handle and could leave the file truncated or with stale bytes at the end (invalid JSON), which the startup repair then "fixed" by rolling back to `library.json.bak`. `library.json` is now written atomically (temp file, then swapped into place), no file handle is shared, and every read and write goes through one lock. A regression test reproduces the old failure.
+- **Editing a novel wiped fields the form doesn't show.** Every save from the Edit dialog reset **Date Added** to now and **Read Count** to 0, and dropped the cover's source URL and scrape info. Edits now change only the fields on the form. The cover file is only rewritten when you actually change the cover, and **Clear Cover** now deletes the old file instead of leaving it behind.
+- **"Last Read" was set by every save**, including the startup auto-refresh and plain edits, so sorting by Last Read was scrambled on every launch. It now changes only on real reading progress: **+1**, the browser extension, or changing Current Chapter in the Edit dialog.
+- **Auto-refresh overwrote your own status.** A novel you marked **Dropped** or **Planned** flipped back to the site's status (e.g. Ongoing) on the next launch. The site's status is now stored separately (`site_status`); your Dropped/Planned is never overwritten, while other statuses still follow the site (e.g. Ongoing → Completed) as before.
+- **Wrong novel matched from a chapter URL.** The extension's URL matching compared raw string prefixes and looked for the stored slug anywhere in the path, so `/series/1` matched `/series/12/…`, and a slug like `2` matched any chapter URL containing the digit 2. Matching is now by whole path segments; the slug fallback ignores numeric ids and hex chapter tokens.
+- **Title fallback was too loose.** It searched author and notes as well as titles and took whichever hit was read most recently. It now compares titles only, stays on the same site, and refuses to guess when two entries share a title (e.g. a novel and its manhwa).
+- **Local API origin check.** `http://localhost.<anything>` passed the check meant for `http://localhost`. Origins are now matched exactly (extension origins, `localhost`, `127.0.0.1`), and progress updates must be sent as JSON, which stops an ordinary web page from firing a silent cross-site update.
+- **Add/Edit dialog froze while downloading a cover.** Cover downloads now run in the background.
+- **Search re-read the library and every cover file on each keystroke.** Search now waits for a short pause in typing, and cover images are cached in memory.
+- **Keyboard shortcuts documented in the manual didn't exist.** Added **Ctrl+N** (Add Novel), **Ctrl+E** (Export), **Ctrl+R** / **F5** (Refresh). The manual's "Delete selected novel" shortcut was removed (the grid has no selection).
+- About dialog listed Webnovel.com (removed long ago) and omitted three supported sites.
+- The "still running in the tray" notification now shows once per session instead of on every close.
+
+### Changed
+- **Browser extension:** looks up a novel with one request carrying both the chapter URL and the title. **Auto-sync now only happens when the novel was matched by its URL**; a title-only match shows a note in the popup and waits for you to press Sync.
+- **Startup auto-refresh** pauses 1.5 s between novels instead of requesting them back to back.
+- The **+1** button now also counts toward Read Count, the same as an extension update.
+- `source_name` is now set correctly for all five supported sites (Wuxiaworld, FreeWebNovel and NovelUpdates entries were saved as "manual").
+
+### Added
+- **Daily backups:** besides `library.json.bak` (the previous save), one dated snapshot per day is kept in `%LOCALAPPDATA%\LibraryOfYore\backups\`, newest 7.
+- **Tests** (`tests/`, run with `python -m pytest tests`) covering storage concurrency, edit field preservation, status handling, URL/title matching and the API's origin and content-type checks.
+- **`tools/check_version.py`:** fails if the version in `config.py`, the extension manifest, `installer.iss`, README, user manual and this changelog disagree. Both the tests and the version check now run in CI.
+
+> Note: v2.0.1 was tagged on GitHub without a changelog entry.
+
 ## [2.0.0] - 2026-09-26
 
 ### Removed

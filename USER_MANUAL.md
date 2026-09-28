@@ -1,6 +1,6 @@
 # Library of Yore — User Manual
 
-**Version 2.0.0**
+**Version 2.0.2**
 
 A complete guide to installing, using, and troubleshooting Library of Yore — your personal desktop web novel tracker.
 
@@ -55,6 +55,7 @@ Library of Yore stores your entire library locally on your machine — no databa
 %LOCALAPPDATA%\LibraryOfYore\
 ├── library.json        ← all novel metadata and reading history
 ├── library.json.bak     ← automatic snapshot written before every save
+├── backups\             ← one dated snapshot per day, newest 7 kept (since 2.0.2)
 ├── covers\              ← one cover image file per novel
 ├── config.json          ← app settings (see Section 14)
 └── exports\             ← Excel exports land here by default
@@ -166,7 +167,7 @@ Use this when a site isn't supported or scraping fails.
 |--------|-----|
 | **Auto** | Fetched automatically when you use Fetch Metadata |
 | **From File** | Click **Load from File** and pick a `.jpg`, `.png`, `.webp`, or `.bmp` |
-| **From URL** | Click **Download from URL** and paste a direct image link |
+| **From URL** | Paste a direct image link (or a novel page on a supported site) into the **Source URL** field, then click **Download from URL** |
 | **Clear** | Click **Clear Cover** to remove the current image |
 
 All covers are saved as local files in your `covers\` folder (see [Section 2](#2-data-storage)) — they travel along whenever you back up the `%LOCALAPPDATA%\LibraryOfYore\` folder.
@@ -217,8 +218,8 @@ Each novel card shows:
 | Red | Dropped |
 | Purple | Planned |
 
-- **Chapter** (current / total)
-- **Progress bar** with completion percentage
+- **Current chapter** (e.g. "Ch. 120")
+- **Progress bar**: current chapter ÷ total chapters
 
 ### Card Actions
 
@@ -242,6 +243,8 @@ Each novel card shows:
    - Title, author, synopsis
 4. Click **Save Novel**
 
+Saving an edit changes only the fields shown in the dialog. **Date Added**, **Read Count** and the cover are kept as they were unless you change them, and **Last Read** only moves if you changed **Current Chapter**.
+
 To delete a novel: right-click its card → **Delete**. This also removes its cover image file from the `covers\` folder.
 
 ---
@@ -261,16 +264,15 @@ To delete a novel: right-click its card → **Delete**. This also removes its co
 | Indicator | Meaning |
 |-----------|---------|
 | Progress bar | Visual fill: `current ÷ total` |
-| Percentage | Exact completion % |
-| "Up to date" | Current chapter equals total chapters |
+| Percentage | Exact completion %, shown in the browser extension popup and the Excel export |
 
 ### Reading History
 
-Every save records:
-- **Last Read** — the timestamp of your latest update
-- **Read Count** — total number of times you've updated the novel
+Every change to your reading progress (the **+1** button, the browser extension, or changing **Current Chapter** in the Edit dialog) records:
+- **Last Read**: the timestamp of that update
+- **Read Count**: total number of progress updates
 
-Sort by **Last Read** to jump back to whatever you were reading most recently.
+Other edits and the startup auto-refresh don't change either value, so sorting by **Last Read** reliably brings back whatever you were reading most recently.
 
 ---
 
@@ -283,7 +285,7 @@ Every time Library of Yore opens, it silently re-scrapes all **Novelfire and Nov
 | Field | Updated? |
 |-------|---------|
 | Total chapters | ✅ Yes — reflects the latest published chapter count |
-| Status | ✅ Yes — picks up Ongoing → Completed transitions automatically |
+| Status | ✅ Yes: picks up Ongoing → Completed transitions automatically. A novel you marked **Dropped** or **Planned** keeps your status |
 | Synopsis | ✅ Yes — pulls the current synopsis text from the novel page |
 | Cover image | ❌ No — covers are not re-downloaded on auto-refresh |
 | Your current chapter | ❌ No — your reading progress is never overwritten |
@@ -311,6 +313,7 @@ or
 - Auto-refresh runs entirely in the background — the UI stays fully responsive
 - As of v1.4.0, Novelfire and NovelPhoenix novels are refreshed. Support for other sources is planned in a future release
 - If a scrape fails for an individual novel (network error, site unavailable), it is silently skipped and the rest continue
+- Novels are refreshed one at a time with a short pause between them, so a large library takes a little while to finish
 
 ---
 
@@ -324,11 +327,11 @@ The **Library of Yore Browser Extension** tracks the chapter you are reading in 
 
 The extension communicates with Library of Yore through a small local API server the app runs on `localhost:7337`. When you navigate to a new chapter, the extension:
 
-1. Reads the current page URL
-2. Matches it against the novels stored in your library by domain and URL slug
+1. Reads the current page URL and the novel title
+2. Matches the URL against the novels stored in your library (same site, and the saved novel page's path must lead into the chapter's path). Only if that fails does it try the title, among novels saved from the same site
 3. Extracts the chapter number from the URL or page content
-4. Sends a progress update to the app if the chapter is newer than what is stored
-5. The app updates the card immediately — chapter label, progress bar, and percentage all refresh in real time
+4. If **Auto-sync** is on (it's off by default, see the popup's Settings) and the novel was matched **by URL**, sends a progress update when the chapter is newer than what is stored. A match by title alone is shown in the popup with a note, and waits for you to press **Sync**
+5. The app updates the card immediately: chapter label and progress bar refresh in real time
 
 The card updates **live** even if the main window is hidden in the system tray.
 
@@ -360,8 +363,8 @@ Click the extension icon in your browser toolbar. The popup shows:
 
 | Status | Meaning |
 |--------|---------|
-| 🟢 **Connected** | Library of Yore is running and the API server is reachable |
-| 🔴 **Disconnected** | The app is not running — launch Library of Yore first |
+| 🟢 Green dot | Library of Yore is running and the API server is reachable |
+| 🔴 Red dot, "App not running" | The app is not running. Launch Library of Yore first |
 
 ### Matching Novels
 
@@ -379,7 +382,7 @@ Library of Yore is designed to run quietly in the background so the browser exte
 
 When you click the **✕ close button** on the main window, the app does **not** quit. Instead it hides to the Windows system tray (bottom-right corner of the taskbar, near the clock). The API server keeps running, so the browser extension continues working normally.
 
-The first time you close the window, a notification balloon appears:
+The first time you close the window in a session, a notification balloon appears:
 
 > *"Still tracking in the background. Right-click the tray icon to quit."*
 
@@ -403,7 +406,7 @@ If you want Library of Yore to launch automatically on login so the extension is
 1. Press `Win + R`, type `shell:startup`, press Enter
 2. Create a shortcut to `LibraryOfYore.exe` in that folder
 
-The app will start minimised to the tray on each login.
+The app opens its window on each login; close it to send it to the tray.
 
 ---
 
@@ -411,7 +414,7 @@ The app will start minimised to the tray on each login.
 
 ### Search
 
-Type in the search box (left sidebar). Matches novels where the search text appears in the **title**, **author**, or **notes** fields. Case-insensitive. Updates instantly as you type.
+Type in the search box (left sidebar). Matches novels where the search text appears in the **title**, **author**, or **notes** fields. Case-insensitive. Results update as soon as you pause typing.
 
 ### Filter by Status
 
@@ -482,9 +485,9 @@ Open this file in any text editor to edit manually.
 
 | Key | Default | Description |
 |-----|---------|-------------|
-| `theme` | `dark` | UI colour theme |
+| `theme` | `dark` | Reserved for future use, not currently read (the app always uses its dark theme) |
 | `window_size` | `[1200, 800]` | Reserved for future use — the app now detects your screen size on launch and opens maximized automatically, so this value isn't currently read |
-| `default_sort` | `last_read` | Default sort field |
+| `default_sort` | `last_read` | Reserved for future use, not currently read (the app always starts sorted by Last Read) |
 
 ### Reset to Defaults
 
@@ -502,7 +505,7 @@ Copy the entire folder:
 %LOCALAPPDATA%\LibraryOfYore\
 ```
 
-This includes `library.json` (all novel metadata and reading history) and the `covers\` folder (every cover image).
+This includes `library.json` (all novel metadata and reading history), the `covers\` folder (every cover image) and the `backups\` folder (daily snapshots).
 
 ### Restore
 
@@ -593,6 +596,8 @@ Since v2.0, Library of Yore checks `library.json` on every startup and repairs i
 
 1. **Wrong-encoding file** (the most common cause — usually a file saved by an early 2.0 build on Windows): re-decoded and repaired **in place**. Nothing is lost; you'll see a one-time message confirming this.
 2. **Genuinely unreadable main file, but the automatic backup is fine**: restored from `library.json.bak` (a snapshot taken before every save). A few very recent changes might be missing.
+
+If you need to go back further than the last save (for example, to undo a change you regret), the `backups\` folder holds one dated copy of `library.json` per day for the last 7 days. Quit the app from the tray, copy the dated file over `library.json`, and relaunch.
 3. **Neither the file nor the backup can be read**: set aside as `library.json.broken-<timestamp>` so the app can still start with an empty library. If you have an existing MongoDB library, use **File → Import Existing MongoDB Library…** to bring your novels back (see [Section 4](#4-first-launch--import-wizard)).
 
 If you ever see a message saying the file **couldn't** be moved or repaired automatically (rare — usually because something else has it locked, e.g. a cloud-sync tool actively writing to it):
@@ -624,7 +629,8 @@ If a cloud-sync tool (OneDrive, Dropbox, etc.) is set to sync `%LOCALAPPDATA%`, 
 
 - Open the novel's Edit dialog and confirm the **Source URL** is set to the novel's main page URL on the reading site (not a chapter URL)
 - Verify the URL domain matches — e.g. the novel must be saved with a `novelfire.net` source URL if you are reading on Novelfire
-- Check the extension popup — it should show the novel title it detected. If it shows "No match found", the URL could not be matched to any saved novel
+- Check the extension popup: it should show the novel title it detected. If it says "This novel isn't in your library yet", neither the URL nor the title matched a saved novel
+- Auto-sync is **off** by default: turn it on in the popup's **Settings**. It only syncs automatically when the novel was matched by its URL; a title-only match needs a click on **Sync**
 
 ### Scraping Fails
 
@@ -702,7 +708,6 @@ Update to **v1.3.0** — earlier versions had Qt's `autoDefault` button behaviou
 | `Ctrl + R` | Refresh library |
 | `Ctrl + E` | Export to Excel |
 | `F5` | Refresh library |
-| `Delete` | Delete selected novel |
 | `Enter` (in Add/Edit dialog URL field) | Trigger Fetch Metadata |
 
 ---
@@ -754,6 +759,6 @@ Make sure you replaced `scrapers/novelfire.py` with the v1.3.0 version and rebui
 
 **Happy Reading!**
 
-*Library of Yore v2.0.0*
+*Library of Yore v2.0.2*
 
 </div>

@@ -6,7 +6,7 @@ from pathlib import Path
 
 APP_NAME = "LibraryOfYore"
 DISPLAY_NAME = "Library of Yore"
-APP_VERSION = "2.0.0"
+APP_VERSION = "2.0.2"
 
 # Paths
 APP_DATA_DIR = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData/Local")) / APP_NAME
@@ -25,6 +25,10 @@ CONFIG_FILE = APP_DATA_DIR / "config.json"
 # to it. No server, no separate install, no service to keep running.
 LIBRARY_FILE = APP_DATA_DIR / "library.json"
 LIBRARY_BACKUP_FILE = APP_DATA_DIR / "library.json.bak"
+
+# Dated daily snapshots of library.json (since v2.0.2), newest N kept.
+BACKUPS_DIR = APP_DATA_DIR / "backups"
+DAILY_BACKUPS_TO_KEEP = 7
 
 COVERS_DIR = APP_DATA_DIR / "covers"
 COVERS_DIR.mkdir(exist_ok=True)

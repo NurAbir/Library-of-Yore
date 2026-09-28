@@ -6,7 +6,7 @@ from typing import Optional, List
 
 from tinydb import Query
 
-from database.connection import get_db, get_write_lock, backup_library_file
+from database.connection import get_db, get_lock, backup_library_file
 from config import COVERS_DIR
 
 
@@ -41,7 +41,8 @@ class Novel:
     cover_url: str = ""                  # Original URL for re-fetch
     current_chapter: int = 0
     total_chapters: Optional[int] = None
-    status: str = "ongoing"              # ongoing, completed, hiatus, dropped, planned
+    status: str = "ongoing"              # ongoing, completed, hiatus, dropped, planned (your status)
+    site_status: str = ""                # what the source site says: ongoing/completed/hiatus ("" = unknown)
     rating: int = 0                      # 0-10
     genres: List[str] = field(default_factory=list)
     synopsis: str = ""
@@ -82,6 +83,7 @@ class Novel:
             data["current_chapter"] = prog.get("current_chapter", 0)
             data["total_chapters"] = prog.get("total_chapters")
             data["status"] = prog.get("status", "ongoing")
+            data["site_status"] = prog.get("site_status", "")
         if "metadata" in data:
             meta = data.pop("metadata")
             data["rating"] = meta.get("rating", 0)
@@ -97,6 +99,29 @@ class Novel:
             data["cover_image_id"] = cov.get("file")
             data["cover_url"] = cov.get("url", "")
         return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
+
+
+# Statuses that describe *your* relationship with a novel rather than its
+# publication state. The startup auto-refresh never overwrites these with
+# whatever the source site says (before v2.0.2 it did, so a novel you had
+# marked Dropped flipped back to Ongoing on the next launch).
+READER_ONLY_STATUSES = ("dropped", "planned")
+
+
+def apply_site_status(novel: Novel, site_status: str) -> bool:
+    """Record the source site's publication status on a novel. The novel's
+    own status follows it (e.g. Ongoing -> Completed) unless you marked the
+    novel Dropped or Planned. Returns True if anything changed."""
+    if not site_status:
+        return False
+    changed = False
+    if site_status != novel.site_status:
+        novel.site_status = site_status
+        changed = True
+    if novel.status not in READER_ONLY_STATUSES and novel.status != site_status:
+        novel.status = site_status
+        changed = True
+    return changed
 
 
 class NovelRepository:
@@ -129,6 +154,7 @@ class NovelRepository:
                 "current_chapter": novel.current_chapter,
                 "total_chapters": novel.total_chapters,
                 "status": novel.status,
+                "site_status": novel.site_status,
                 "percent_complete": novel.percent_complete,
                 "is_up_to_date": novel.is_up_to_date,
             },
@@ -150,34 +176,39 @@ class NovelRepository:
         if not novel._id:
             novel._id = uuid.uuid4().hex
         doc = self._to_doc(novel)
-        with get_write_lock():
+        with get_lock():
             backup_library_file()
             self.table.insert(doc)
         return novel._id
 
     def update(self, novel: Novel) -> bool:
-        """Update existing novel by _id."""
+        """Update existing novel by _id.
+
+        Saves the novel exactly as given. It does NOT touch last_read: before
+        v2.0.2 every save (including the startup auto-refresh and plain edits)
+        stamped last_read, which scrambled the "Last Read" sort. Callers that
+        record real reading progress set novel.last_read themselves."""
         if not novel._id:
             return False
-        novel.last_read = datetime.datetime.utcnow()
         doc = self._to_doc(novel)
-        with get_write_lock():
+        with get_lock():
             backup_library_file()
             updated = self.table.update(doc, Query()._id == novel._id)
         return len(updated) > 0
 
     def delete(self, novel_id: str) -> bool:
         """Delete a novel and its cover file, if any."""
-        novel = self.get_by_id(novel_id)
-        if novel and novel.cover_image_id:
-            self.delete_cover(novel.cover_image_id)
-        with get_write_lock():
+        with get_lock():
+            novel = self.get_by_id(novel_id)
+            if novel and novel.cover_image_id:
+                self.delete_cover(novel.cover_image_id)
             backup_library_file()
             removed = self.table.remove(Query()._id == novel_id)
         return len(removed) > 0
 
     def get_by_id(self, novel_id: str) -> Optional[Novel]:
-        doc = self.table.get(Query()._id == novel_id)
+        with get_lock():
+            doc = self.table.get(Query()._id == novel_id)
         return Novel.from_dict(doc) if doc else None
 
     def get_all(self, status_filter: Optional[List[str]] = None,
@@ -187,7 +218,9 @@ class NovelRepository:
                 sort_order: str = "desc") -> List[Novel]:
         """Query novels with filters and sorting (done in-process over the
         loaded list — plenty fast for a personal library's scale)."""
-        novels = [Novel.from_dict(d) for d in self.table.all()]
+        with get_lock():
+            docs = self.table.all()
+        novels = [Novel.from_dict(d) for d in docs]
 
         if status_filter:
             novels = [n for n in novels if n.status in status_filter]
@@ -240,17 +273,19 @@ class NovelRepository:
 
     def update_chapter_progress(self, novel_id: str, new_chapter: int, increment_read: bool = True):
         """Quick update for chapter progress."""
-        with get_write_lock():
+        with get_lock():
             doc = self.table.get(Query()._id == novel_id)
             if not doc:
                 return
             backup_library_file()
-            doc.setdefault("progress", {})["current_chapter"] = new_chapter
-            history = doc.setdefault("history", {})
-            history["last_read"] = _dt_to_str(datetime.datetime.utcnow())
+            novel = Novel.from_dict(doc)
+            novel.current_chapter = new_chapter
+            novel.last_read = datetime.datetime.utcnow()
             if increment_read:
-                history["read_count"] = history.get("read_count", 0) + 1
-            self.table.update(doc, Query()._id == novel_id)
+                novel.read_count += 1
+            # Re-serialize the whole record so derived fields stored in the
+            # file (percent_complete, is_up_to_date) stay in step.
+            self.table.update(self._to_doc(novel), Query()._id == novel_id)
 
     def export_to_list(self) -> List[dict]:
         """Export all novels as flat dicts for spreadsheet."""

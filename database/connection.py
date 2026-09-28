@@ -4,20 +4,98 @@ Novels are stored in one TinyDB-backed JSON file (config.LIBRARY_FILE) inside
 the app's data directory instead of a MongoDB server. TinyDB gives the same
 "insert/query a dict" ergonomics MongoDB did, just without anything to
 install, start, or keep running in the background.
+
+Since v2.0.2 the file is written atomically (write a temp file, then swap it
+into place) instead of through TinyDB's stock JSONStorage. The stock storage
+keeps one file handle open and shares it between every thread; a read from
+the browser-extension API thread landing in the middle of a UI-thread write
+moved that shared handle's position and could leave the file truncated or
+with stale bytes at the end (invalid JSON). Every read and write now also goes
+through one shared re-entrant lock (see get_lock()).
 """
 import datetime
 import json
+import os
 import shutil
+import tempfile
 import threading
+import time
+from pathlib import Path
 from typing import Optional
 
 from tinydb import TinyDB
-from tinydb.storages import JSONStorage
+from tinydb.storages import Storage
 
-from config import LIBRARY_FILE, LIBRARY_BACKUP_FILE
+from config import LIBRARY_FILE, LIBRARY_BACKUP_FILE, BACKUPS_DIR, DAILY_BACKUPS_TO_KEEP
 
 _db = None
-_write_lock = threading.Lock()  # guards writes from the UI thread and the browser-extension API thread
+# Guards every read AND write of library.json, from the UI thread, the
+# browser-extension API thread, and background workers. Re-entrant so a
+# repository method that reads and then writes can hold it throughout.
+_db_lock = threading.RLock()
+
+# Windows (and antivirus / cloud-sync tools) can briefly hold the file open,
+# which makes open/replace fail with PermissionError. Retry a few times
+# before giving up.
+_RETRIES = 8
+_RETRY_DELAY_S = 0.05
+
+
+def _with_retries(fn):
+    last_exc = None
+    for attempt in range(_RETRIES):
+        try:
+            return fn()
+        except PermissionError as e:
+            last_exc = e
+            time.sleep(_RETRY_DELAY_S * (attempt + 1))
+    raise last_exc
+
+
+class AtomicJSONStorage(Storage):
+    """TinyDB storage that opens the file fresh for each read and replaces it
+    atomically on each write, so a reader can never observe (or cause) a
+    half-written file. Callers must still serialize access with get_lock()."""
+
+    def __init__(self, path, encoding: str = "utf-8", **json_kwargs):
+        self.path = Path(path)
+        self.encoding = encoding
+        self.json_kwargs = json_kwargs
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+
+    def read(self):
+        if not self.path.exists():
+            return None
+
+        def _read():
+            with open(self.path, "r", encoding=self.encoding) as f:
+                return f.read()
+
+        text = _with_retries(_read)
+        if not text.strip():
+            return None
+        return json.loads(text)
+
+    def write(self, data):
+        serialized = json.dumps(data, **self.json_kwargs)
+        fd, tmp_path = tempfile.mkstemp(
+            prefix=self.path.name + ".", suffix=".tmp", dir=str(self.path.parent)
+        )
+        try:
+            with os.fdopen(fd, "w", encoding=self.encoding, newline="") as f:
+                f.write(serialized)
+                f.flush()
+                os.fsync(f.fileno())
+            _with_retries(lambda: os.replace(tmp_path, self.path))
+        except BaseException:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+            raise
+
+    def close(self):
+        pass
 
 
 def _try_load(path, encoding) -> Optional[dict]:
@@ -117,37 +195,74 @@ def get_db() -> TinyDB:
     """Get or create the TinyDB singleton backed by library.json."""
     global _db
     if _db is None:
-        # encoding='utf-8' is required here: TinyDB's JSONStorage otherwise
-        # opens the file using the OS's default locale encoding, which on
+        _remove_stale_temp_files()
+        # encoding='utf-8' is required here: without it the file would be
+        # opened using the OS's default locale encoding, which on
         # Windows is often a legacy codepage (e.g. cp1252/"charmap") rather
         # than UTF-8. Novel titles, synopses, and notes scraped from real
         # sites regularly contain characters that codepage can't represent
         # (accented letters, CJK, smart quotes, emoji), which crashes the
         # write with "'charmap' codec can't encode character ...".
-        _db = TinyDB(LIBRARY_FILE, storage=JSONStorage, indent=2, ensure_ascii=False, encoding="utf-8")
+        _db = TinyDB(LIBRARY_FILE, storage=AtomicJSONStorage, indent=2, ensure_ascii=False, encoding="utf-8")
     return _db
 
 
-def get_write_lock() -> threading.Lock:
-    """Shared lock so the UI and the local API server thread never write to
-    the JSON file at the same instant."""
-    return _write_lock
+def _remove_stale_temp_files():
+    """A crash between writing the temp file and swapping it into place can
+    leave a library.json.*.tmp behind. The real library.json is untouched in
+    that case, so the leftover is safe to delete."""
+    for leftover in LIBRARY_FILE.parent.glob(LIBRARY_FILE.name + ".*.tmp"):
+        try:
+            leftover.unlink()
+        except OSError:
+            pass
+
+
+def get_lock() -> threading.RLock:
+    """Shared lock for every read and write of library.json, so the UI, the
+    local API server thread and background workers never touch the file at
+    the same instant."""
+    return _db_lock
+
+
+# Kept for backward compatibility with older call sites.
+get_write_lock = get_lock
+
+
+def _daily_snapshot():
+    """Keep one dated copy of library.json per day in backups/, newest
+    DAILY_BACKUPS_TO_KEEP only. library.json.bak is overwritten on every save,
+    so on its own it can't bring back anything older than one save; these
+    snapshots can."""
+    BACKUPS_DIR.mkdir(parents=True, exist_ok=True)
+    today = datetime.date.today().isoformat()
+    target = BACKUPS_DIR / f"library-{today}.json"
+    if not target.exists():
+        shutil.copyfile(LIBRARY_FILE, target)
+    snapshots = sorted(BACKUPS_DIR.glob("library-????-??-??.json"))
+    for old in snapshots[:-DAILY_BACKUPS_TO_KEEP]:
+        try:
+            old.unlink()
+        except OSError:
+            pass
 
 
 def backup_library_file():
-    """Copy library.json to library.json.bak just before a write. Best-effort
-    safety net — a crash or corrupted write on shutdown never loses the whole
-    library, just rolls back to the previous save."""
+    """Copy library.json to library.json.bak just before a write, and take
+    the day's dated snapshot if there isn't one yet. Best-effort safety net:
+    a failure here never blocks the actual save."""
     try:
         if LIBRARY_FILE.exists():
             shutil.copyfile(LIBRARY_FILE, LIBRARY_BACKUP_FILE)
+            _daily_snapshot()
     except Exception:
-        pass  # never let a backup failure block an actual save
+        pass
 
 
 def close_db():
     """Flush and release the TinyDB file handle."""
     global _db
     if _db is not None:
-        _db.close()
-        _db = None
+        with _db_lock:
+            _db.close()
+            _db = None

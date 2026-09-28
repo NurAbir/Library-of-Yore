@@ -48,21 +48,20 @@ async function setState(patch) {
 }
 
 // ── Find the library entry for a detected chapter ───────────────────────────
+//
+// One lookup sends both the chapter URL and the novel title. The app matches
+// by URL first and only falls back to the title (restricted to the same site)
+// if the URL doesn't match. Returns { novel, match } where match is "url" or
+// "title", or null when nothing matched.
 
 async function findNovel(info) {
   try {
-    // First try matching by source URL
-    const byUrl = await apiGet(
-      `/find?url=${encodeURIComponent(info.sourceUrl)}`
-    );
-    if (byUrl.found) return byUrl.novel;
-
-    // Fall back to title search
-    const byTitle = await apiGet(
-      `/find?title=${encodeURIComponent(info.novelTitle)}`
-    );
-    if (byTitle.found) return byTitle.novel;
-
+    const params = new URLSearchParams({
+      url: info.url || info.sourceUrl || "",
+      title: info.novelTitle || "",
+    });
+    const res = await apiGet(`/find?${params.toString()}`);
+    if (res.found) return { novel: res.novel, match: res.match || "url" };
     return null;
   } catch {
     return null;
@@ -90,27 +89,33 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       case "CHAPTER_DETECTED": {
         const info = msg.payload;
         const appOnline = await isAppRunning();
-        let libraryNovel = null;
+        let found = null;
 
         if (appOnline) {
-          libraryNovel = await findNovel(info);
+          found = await findNovel(info);
         }
+        const libraryNovel = found ? found.novel : null;
+        const libraryMatch = found ? found.match : null;
 
         const state = await setState({
           reading: info,
           libraryNovel,
+          libraryMatch,
           appOnline,
           lastSeen: Date.now(),
         });
 
         await updateBadge(info.chapter);
 
-        // Auto-sync if enabled and novel is in library and chapter is newer
+        // Auto-sync only when the novel was matched by its URL. A title-only
+        // match could be the wrong entry (e.g. a novel and its manhwa with
+        // the same name), so that case waits for a manual Sync click.
         const settings = await getSettings();
         if (
           settings.autoSync &&
           appOnline &&
           libraryNovel &&
+          libraryMatch === "url" &&
           info.chapter > libraryNovel.current_chapter
         ) {
           try {
@@ -120,7 +125,10 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
             });
             // Refresh library novel data
             const updated = await findNovel(info);
-            await setState({ libraryNovel: updated });
+            await setState({
+              libraryNovel: updated ? updated.novel : null,
+              libraryMatch: updated ? updated.match : null,
+            });
           } catch (e) {
             console.error("Auto-sync failed:", e);
           }
@@ -151,7 +159,10 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
           const state = await getState();
           if (state.reading) {
             const updated = await findNovel(state.reading);
-            await setState({ libraryNovel: updated });
+            await setState({
+              libraryNovel: updated ? updated.novel : null,
+              libraryMatch: updated ? updated.match : null,
+            });
           }
           sendResponse({ ok: true, result });
         } catch (e) {

@@ -12,7 +12,7 @@ Built with Python and PyQt6 — stored locally, no database server required.
 [![PyQt6](https://img.shields.io/badge/PyQt6-6.4+-green.svg)](https://riverbankcomputing.com/software/pyqt)
 [![Storage](https://img.shields.io/badge/Storage-Local%20JSON-lightgrey.svg)]()
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-2.0.0-orange.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/Version-2.0.2-orange.svg)](CHANGELOG.md)
 
 </div>
 
@@ -37,7 +37,7 @@ Supports **Novelfire**, **NovelPhoenix**, **Wuxiaworld**, **FreeWebNovel**, and 
 | **Auto-Refresh on Startup** | Novelfire and NovelPhoenix novels are silently re-scraped in the background when the app opens — latest chapter count, status, and synopsis update automatically |
 | **Updated Badge** | Cards that received new data during auto-refresh show a gold ✦ Updated badge |
 | **Chapter Tracking** | Track current chapter, total chapters, and completion percentage |
-| **Status Management** | Ongoing, Completed, Hiatus, Dropped, Planned |
+| **Status Management** | Ongoing, Completed, Hiatus, Dropped, Planned. Auto-refresh never overrides a novel you marked Dropped or Planned |
 | **Search & Filter** | Filter by status, search by title/author/notes, sort by last read / rating / progress |
 | **Cover Storage** | Images stored as local files — your entire library lives in one JSON file plus a covers folder, no server required |
 | **Excel Export** | Export your entire library to `.xlsx` with one click |
@@ -71,7 +71,7 @@ The **Library of Yore Browser Extension** detects which chapter you are reading 
 
 1. Library of Yore runs a small local API server on `localhost:7337`
 2. The extension watches the current tab URL and detects chapter numbers
-3. When you advance to a new chapter it sends the update to the app
+3. When you advance to a new chapter it sends the update to the app (with **Auto-sync** turned on in the popup's settings, and only for novels matched by their URL; otherwise press **Sync**)
 4. The app writes it to your local library file and refreshes the card — even if the main window is hidden
 
 ### Background Tracking (System Tray)
@@ -158,6 +158,10 @@ playwright install chromium
 
 # Run the app
 python main.py
+
+# Run the tests
+pip install pytest
+python -m pytest tests
 ```
 
 ---
@@ -238,8 +242,12 @@ libraryofyore/
 │   ├── novel_card.py       # Individual novel card widget
 │   └── add_novel_dialog.py # Add/Edit novel with live scraping
 │
-└── utils/
-    └── helpers.py          # Image download, resize, bytes-to-pixmap
+├── utils/
+│   └── helpers.py          # Image download, resize, bytes-to-pixmap
+│
+├── tests/                  # pytest suite: python -m pytest tests
+└── tools/
+    └── check_version.py    # Fails if the version differs between config.py, manifest, installer, docs
 ```
 
 ---
@@ -252,7 +260,8 @@ All data is stored **locally** — nothing leaves your machine, and no database 
 |---|---|
 | **Library file** | `%LOCALAPPDATA%\LibraryOfYore\library.json` — metadata, progress, reading history |
 | **Cover images** | `%LOCALAPPDATA%\LibraryOfYore\covers\` — one file per novel cover |
-| **Crash safety** | `library.json.bak` — a snapshot written before every save |
+| **Crash safety** | `library.json` is written atomically; `library.json.bak` holds the previous save |
+| **Daily backups** | `%LOCALAPPDATA%\LibraryOfYore\backups\`: one dated snapshot per day, newest 7 kept |
 
 **Backup:** Copy the entire `%LOCALAPPDATA%\LibraryOfYore\` folder.
 **Restore:** Copy it back to the same location on any machine.
@@ -274,7 +283,7 @@ All data is stored **locally** — nothing leaves your machine, and no database 
 | Existing MongoDB library not detected | The import check only looks at `localhost:27017` (or a custom URI from an old `config.json`) — make sure MongoDB is still running the first time you launch 2.0, then use **File → Import Existing MongoDB Library…** |
 | Chapters show wrong number | Update to v1.0.1+ — the 4-digit chapter bug is fixed |
 | Extension shows "Disconnected" | Make sure Library of Yore is running (check the system tray) |
-| Card not updating from extension | Confirm the novel's Source URL matches the site you are reading on |
+| Card not updating from extension | Confirm the novel's Source URL matches the site you are reading on, and that Auto-sync is on in the extension's settings |
 | Synopsis shows "Summary..." prefix | Update to v1.3.0 — the leading label is now stripped automatically |
 | `AttributeError: module 'numpy' has no attribute 'short'` on startup | Update to v1.4.0 — the build now excludes numpy/pandas/matplotlib, which openpyxl only used optionally and which PyInstaller was bundling incompletely |
 | Compiling `installer.iss` says exe not found even though it's there | Update to v1.4.0 — the installer script now anchors its path checks to the script's own folder instead of the compiler's working directory |

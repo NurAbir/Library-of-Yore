@@ -1,4 +1,6 @@
 """Dialog for adding or editing a novel with scraping support."""
+import dataclasses
+import datetime
 import webbrowser
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton,
@@ -17,8 +19,10 @@ from ui import theme
 
 
 class ScrapeWorker(QThread):
-    """Background worker to scrape novel metadata."""
-    finished = pyqtSignal(object)
+    """Background worker to scrape novel metadata. Also downloads the cover
+    here, off the UI thread (before v2.0.2 the cover download ran on the UI
+    thread and froze the dialog)."""
+    finished = pyqtSignal(object, object)  # ScraperResult, cover bytes or None
     error = pyqtSignal(str)
 
     def __init__(self, url: str):
@@ -32,7 +36,40 @@ class ScrapeWorker(QThread):
             return
         try:
             result = scraper.scrape(self.url)
-            self.finished.emit(result)
+        except Exception as e:
+            self.error.emit(str(e))
+            return
+        cover_bytes = None
+        if result.success and result.cover_url:
+            try:
+                cover_bytes = download_image(result.cover_url)
+            except Exception:
+                cover_bytes = None  # metadata still fills in; cover can be retried
+        self.finished.emit(result, cover_bytes)
+
+
+class CoverWorker(QThread):
+    """Background cover download for the "Download from URL" button. Accepts
+    a direct image URL, or a novel page URL on a supported site (in which case
+    the page is scraped for its cover first)."""
+    finished = pyqtSignal(bytes, str)  # image bytes, the image URL used
+    error = pyqtSignal(str)
+
+    def __init__(self, url: str):
+        super().__init__()
+        self.url = url
+
+    def run(self):
+        try:
+            image_url = self.url
+            scraper = get_scraper_for_url(self.url)
+            if scraper:
+                result = scraper.scrape(self.url)
+                if not result.cover_url:
+                    self.error.emit("No cover image found on that page.")
+                    return
+                image_url = result.cover_url
+            self.finished.emit(download_image(image_url), image_url)
         except Exception as e:
             self.error.emit(str(e))
 
@@ -49,6 +86,11 @@ class AddNovelDialog(QDialog):
         self.is_edit = novel is not None
         self.cover_image_bytes = None
         self.scraped_cover_url = ""
+        # True once the cover is loaded, downloaded or cleared in this dialog;
+        # an untouched cover is left exactly as it is on save.
+        self.cover_changed = False
+        self.cover_source_url = novel.cover_url if novel else ""
+        self.scraped_site_status = ""
 
         self.setWindowTitle("Edit Novel" if self.is_edit else "Add Novel")
         self.setMinimumSize(750, 600)
@@ -316,6 +358,7 @@ class AddNovelDialog(QDialog):
         has_url = bool(text.strip())
         self.fetch_btn.setEnabled(has_url)
         self.open_url_btn.setEnabled(has_url)
+        self.download_cover_btn.setEnabled(has_url or bool(self.scraped_cover_url))
 
     def _start_scrape(self):
         url = self.url_input.text().strip()
@@ -330,7 +373,7 @@ class AddNovelDialog(QDialog):
         self.scrape_worker.error.connect(self._on_scrape_error)
         self.scrape_worker.start()
 
-    def _on_scrape_finished(self, result):
+    def _on_scrape_finished(self, result, cover_bytes=None):
         self.fetch_btn.setEnabled(True)
         self.fetch_btn.setText("Fetch Metadata")
 
@@ -349,14 +392,19 @@ class AddNovelDialog(QDialog):
         if result.genres:
             self.genres_input.setText(", ".join(result.genres))
         if result.status:
-            idx = self.status_combo.findText(result.status.title())
-            if idx >= 0:
-                self.status_combo.setCurrentIndex(idx)
+            self.scraped_site_status = result.status
+            # Pre-fill your status from the site only when adding; when editing,
+            # keep whatever status you already chose.
+            if not self.is_edit:
+                idx = self.status_combo.findText(result.status.title())
+                if idx >= 0:
+                    self.status_combo.setCurrentIndex(idx)
 
         if result.cover_url:
             self.scraped_cover_url = result.cover_url
             self.download_cover_btn.setEnabled(True)
-            self._download_cover_from_url()
+            if cover_bytes:
+                self._set_new_cover(cover_bytes, result.cover_url)
 
         # Show a quiet inline status instead of a blocking pop-up
         parts = []
@@ -382,30 +430,43 @@ class AddNovelDialog(QDialog):
         )
         if path:
             with open(path, "rb") as f:
-                self.cover_image_bytes = f.read()
-            self._update_cover_preview(self.cover_image_bytes)
+                self._set_new_cover(f.read(), "")
             self.scraped_cover_url = ""
+
+    def _set_new_cover(self, image_bytes: bytes, source_url: str):
+        self.cover_image_bytes = image_bytes
+        self.cover_source_url = source_url
+        self.cover_changed = True
+        self._update_cover_preview(image_bytes)
 
     def _download_cover_from_url(self):
         url = self.scraped_cover_url or self.url_input.text().strip()
         if not url:
             return
-        try:
-            if self.scraped_cover_url:
-                self.cover_image_bytes = download_image(self.scraped_cover_url)
-            else:
-                scraper = get_scraper_for_url(url)
-                if scraper:
-                    result = scraper.scrape(url)
-                    if result.cover_url:
-                        self.cover_image_bytes = download_image(result.cover_url)
-            if self.cover_image_bytes:
-                self._update_cover_preview(self.cover_image_bytes)
-        except Exception as e:
-            QMessageBox.warning(self, "Cover Download Failed", str(e))
+        self.download_cover_btn.setEnabled(False)
+        self.download_cover_btn.setText("Downloading...")
+        self.cover_worker = CoverWorker(url)
+        self.cover_worker.finished.connect(self._on_cover_downloaded)
+        self.cover_worker.error.connect(self._on_cover_download_error)
+        self.cover_worker.start()
+
+    def _on_cover_downloaded(self, image_bytes: bytes, image_url: str):
+        self._reset_download_button()
+        if image_bytes:
+            self._set_new_cover(image_bytes, image_url)
+
+    def _on_cover_download_error(self, msg: str):
+        self._reset_download_button()
+        QMessageBox.warning(self, "Cover Download Failed", msg)
+
+    def _reset_download_button(self):
+        self.download_cover_btn.setText("Download from URL")
+        self.download_cover_btn.setEnabled(bool(self.scraped_cover_url or self.url_input.text().strip()))
 
     def _clear_cover(self):
         self.cover_image_bytes = None
+        self.cover_source_url = ""
+        self.cover_changed = True
         self.scraped_cover_url = ""
         self.cover_label.setText("No cover")
         self.cover_label.setPixmap(QPixmap())
@@ -448,12 +509,13 @@ class AddNovelDialog(QDialog):
             QMessageBox.warning(self, "Validation Error", "Title is required.")
             return
 
-        novel = Novel(
-            _id=self.novel._id if self.is_edit else None,
+        source_url = self.url_input.text().strip()
+        scraper = get_scraper_for_url(source_url) if source_url else None
+        form = dict(
             title=title,
             author=self.author_input.text().strip(),
-            source_url=self.url_input.text().strip(),
-            source_name="manual",
+            source_url=source_url,
+            source_name=scraper.SOURCE_NAME if scraper else "manual",
             current_chapter=self.current_chapter_spin.value(),
             total_chapters=self.total_chapter_spin.value() if self.total_chapter_spin.value() > 0 else None,
             status=self.status_combo.currentText().lower(),
@@ -462,26 +524,35 @@ class AddNovelDialog(QDialog):
             synopsis=self.synopsis_input.toPlainText().strip(),
             notes=self.notes_input.toPlainText().strip(),
         )
+        if self.scraped_site_status:
+            form["site_status"] = self.scraped_site_status
 
-        if novel.source_url:
-            if "webnovel.com" in novel.source_url.lower():
-                novel.source_name = "webnovel"
-            elif "novelfire" in novel.source_url.lower():
-                novel.source_name = "novelfire"
-            elif "novelphoenix" in novel.source_url.lower():
-                novel.source_name = "novelphoenix"
+        if self.is_edit:
+            # Start from the stored record and change only what this form
+            # edits. Before v2.0.2 an edit rebuilt the novel from scratch,
+            # which reset Date Added and Read Count and dropped the cover URL
+            # and scrape info on every save.
+            novel = dataclasses.replace(self.novel, **form)
+            if novel.current_chapter != self.novel.current_chapter:
+                novel.last_read = datetime.datetime.utcnow()
+                novel.read_count += 1
+        else:
+            novel = Novel(**form)
 
-        if self.cover_image_bytes:
+        if self.cover_changed:
             if self.is_edit and self.novel.cover_image_id:
                 self.repo.delete_cover(self.novel.cover_image_id)
-            cover_id = self.repo.save_cover(self.cover_image_bytes, title + ".jpg")
-            novel.cover_image_id = cover_id
+            if self.cover_image_bytes:
+                novel.cover_image_id = self.repo.save_cover(self.cover_image_bytes, title + ".jpg")
+                novel.cover_url = self.cover_source_url
+            else:
+                novel.cover_image_id = None
+                novel.cover_url = ""
 
         if self.is_edit:
             self.repo.update(novel)
         else:
-            novel_id = self.repo.insert(novel)
-            novel._id = novel_id
+            novel._id = self.repo.insert(novel)
 
         self.novel = novel
         self.novel_saved.emit()

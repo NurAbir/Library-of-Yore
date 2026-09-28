@@ -1,6 +1,5 @@
 """Main application window for LibraryOfYore."""
 import webbrowser
-import datetime
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QLineEdit, QPushButton, QComboBox, QListWidget, QListWidgetItem,
@@ -9,9 +8,9 @@ from PyQt6.QtWidgets import (
     QSystemTrayIcon, QApplication
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer
-from PyQt6.QtGui import QAction, QFont, QIcon
+from PyQt6.QtGui import QAction, QFont, QIcon, QKeySequence
 
-from database.models import NovelRepository, Novel
+from database.models import NovelRepository, Novel, apply_site_status
 import api_server
 from ui.setup_wizard import ImportWizard
 from ui.add_novel_dialog import AddNovelDialog
@@ -82,8 +81,12 @@ class NovelRefreshWorker(QThread):
     """Background worker that re-scrapes Novelfire novels on startup to get the
     latest chapter count and status without blocking the UI."""
 
-    novel_updated = pyqtSignal(str, int, str, str)  # novel_id, total_chapters, status, synopsis
+    novel_updated = pyqtSignal(str, int, str, str)  # novel_id, total_chapters, site status, synopsis
     finished = pyqtSignal(int)                       # number of novels successfully refreshed
+
+    # Pause between novels so a large library doesn't hit the site with a
+    # burst of back-to-back requests on every launch.
+    DELAY_BETWEEN_NOVELS_MS = 1500
 
     def __init__(self, novels):
         super().__init__()
@@ -92,9 +95,11 @@ class NovelRefreshWorker(QThread):
     def run(self):
         from scrapers import get_scraper_for_url
         updated = 0
-        for novel in self.novels:
+        for i, novel in enumerate(self.novels):
             if not novel.source_url:
                 continue
+            if i > 0:
+                self.msleep(self.DELAY_BETWEEN_NOVELS_MS)
             scraper = get_scraper_for_url(novel.source_url)
             if not scraper:
                 continue
@@ -133,6 +138,17 @@ class MainWindow(QMainWindow):
         self._reflow_timer = QTimer(self)
         self._reflow_timer.setSingleShot(True)
         self._reflow_timer.timeout.connect(self._reflow_grid)
+
+        # Debounce search: rebuild the grid once typing pauses, not per keystroke
+        self._search_timer = QTimer(self)
+        self._search_timer.setSingleShot(True)
+        self._search_timer.timeout.connect(self._refresh_library)
+
+        # Cover image bytes by cover file id, so rebuilding the grid (search,
+        # filter, sort) doesn't re-read every cover file from disk each time.
+        # Cover ids are unique per saved image, so entries never go stale.
+        self._cover_cache = {}
+        self._tray_hint_shown = False
 
         self._check_db_connection()
         self._build_ui()
@@ -201,14 +217,18 @@ class MainWindow(QMainWindow):
         # Menu bar
         menubar = self.menuBar()
         file_menu = menubar.addMenu("File")
-        file_menu.addAction("Export to Excel", self._export_excel)
+        add_action = file_menu.addAction("Add Novel", self._add_novel)
+        add_action.setShortcut(QKeySequence("Ctrl+N"))
+        export_action = file_menu.addAction("Export to Excel", self._export_excel)
+        export_action.setShortcut(QKeySequence("Ctrl+E"))
         file_menu.addSeparator()
         file_menu.addAction("Import Existing MongoDB Library…", self._import_legacy_library)
         file_menu.addSeparator()
         file_menu.addAction("Exit", self.close)
 
         view_menu = menubar.addMenu("View")
-        view_menu.addAction("Refresh", self._refresh_library)
+        refresh_action = view_menu.addAction("Refresh", self._refresh_library)
+        refresh_action.setShortcuts([QKeySequence("Ctrl+R"), QKeySequence("F5")])
 
         help_menu = menubar.addMenu("Help")
         help_menu.addAction("About", self._show_about)
@@ -250,7 +270,7 @@ class MainWindow(QMainWindow):
         search_layout = QVBoxLayout()
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText("Title, author, notes...")
-        self.search_input.textChanged.connect(self._refresh_library)
+        self.search_input.textChanged.connect(lambda _text: self._search_timer.start(250))
         search_layout.addWidget(self.search_input)
         search_box.setLayout(search_layout)
         sidebar_layout.addWidget(search_box)
@@ -439,7 +459,11 @@ class MainWindow(QMainWindow):
         for i, novel in enumerate(novels):
             cover_bytes = None
             if novel.cover_image_id:
-                cover_bytes = self.repo.get_cover(novel.cover_image_id)
+                cover_bytes = self._cover_cache.get(novel.cover_image_id)
+                if cover_bytes is None:
+                    cover_bytes = self.repo.get_cover(novel.cover_image_id)
+                    if cover_bytes:
+                        self._cover_cache[novel.cover_image_id] = cover_bytes
 
             card = NovelCard(novel, cover_bytes)
             card.clicked.connect(self._on_card_clicked)
@@ -490,8 +514,9 @@ class MainWindow(QMainWindow):
         novel = self.repo.get_by_id(novel_id)
         if novel:
             novel.current_chapter += 1
-            novel.last_read = datetime.datetime.utcnow()
-            self.repo.update(novel)
+            # Records last_read and read_count the same way the browser
+            # extension does
+            self.repo.update_chapter_progress(novel_id, novel.current_chapter, increment_read=True)
             # Update card UI without full refresh
             if novel_id in self.novel_cards:
                 self.novel_cards[novel_id].update_progress(
@@ -521,8 +546,10 @@ class MainWindow(QMainWindow):
         self.refresh_worker.finished.connect(self._on_refresh_finished)
         self.refresh_worker.start()
 
-    def _on_novel_refreshed(self, novel_id: str, total_chapters: int, status: str, synopsis: str):
-        """Called (on main thread) for each novel the refresh worker finishes."""
+    def _on_novel_refreshed(self, novel_id: str, total_chapters: int, site_status: str, synopsis: str):
+        """Called (on main thread) for each novel the refresh worker finishes.
+        Updates the novel's site data only: never your current chapter, never
+        last_read, and never a status you set to Dropped or Planned."""
         novel = self.repo.get_by_id(novel_id)
         if not novel:
             return
@@ -531,8 +558,7 @@ class MainWindow(QMainWindow):
         if total_chapters and total_chapters != novel.total_chapters:
             novel.total_chapters = total_chapters
             changed = True
-        if status and status != novel.status:
-            novel.status = status
+        if apply_site_status(novel, site_status):
             changed = True
         if synopsis and synopsis != novel.synopsis:
             novel.synopsis = synopsis
@@ -592,7 +618,7 @@ class MainWindow(QMainWindow):
             self, "About Library of Yore",
             f"<h2>Library of Yore v{APP_VERSION}</h2>"
             "<p>A desktop bookmark tracker for web novels.</p>"
-            "<p>Supports: Webnovel.com, Novelfire.net, NovelPhoenix.com</p>"
+            "<p>Supports: Novelfire, NovelPhoenix, Wuxiaworld, FreeWebNovel, NovelUpdates</p>"
             "<p>Built with Python and PyQt6. Stored locally — no database server required.</p>"
             f"<p><b>Browser Extension API:</b> localhost:{api_server.PORT}</p>"
         )
@@ -649,7 +675,8 @@ class MainWindow(QMainWindow):
             # Hide to tray instead of closing
             event.ignore()
             self.hide()
-            if hasattr(self, "tray_icon"):
+            if hasattr(self, "tray_icon") and not self._tray_hint_shown:
+                self._tray_hint_shown = True
                 self.tray_icon.showMessage(
                     "Library of Yore",
                     "Still tracking in the background. Right-click the tray icon to quit.",

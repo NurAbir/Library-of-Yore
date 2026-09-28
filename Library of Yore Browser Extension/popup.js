@@ -99,8 +99,11 @@ function render(state) {
     const browserCh = state.reading.chapter;
     const storedCh  = novel.current_chapter;
 
+    const byTitle = state.libraryMatch === "title";
+
     if (browserCh > storedCh) {
-      syncState.textContent  = `⬆ ${browserCh - storedCh} chapter${browserCh - storedCh > 1 ? "s" : ""} ahead`;
+      syncState.textContent  = `⬆ ${browserCh - storedCh} chapter${browserCh - storedCh > 1 ? "s" : ""} ahead`
+        + (byTitle ? " (matched by title only: check it's the right entry)" : "");
       syncState.className    = "sync-state";
       btnSync.disabled       = false;
       btnSync.textContent    = `Sync to Ch ${browserCh}`;
