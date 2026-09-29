@@ -52,15 +52,15 @@ Supports **Novelfire**, **NovelPhoenix**, **Wuxiaworld**, **FreeWebNovel**, **No
 
 ## Supported Sites
 
-| Site | Type | URL Example | Extension tracking | Auto-refresh | Full chapter list |
-|------|------|-------------|:--:|:--:|:--:|
-| [Novelfire](https://novelfire.net) | Novels | `https://novelfire.net/book/shadow-slave` | ✅ | ✅ | |
-| [NovelPhoenix](https://novelphoenix.com) | Novels | `https://novelphoenix.com/novel/shadow-slave` | ✅ | ✅ | |
-| [Wuxiaworld](https://www.wuxiaworld.com) | Novels | `https://www.wuxiaworld.com/novel/renegade-immortal` | ✅ | | |
-| [FreeWebNovel](https://freewebnovel.com) | Novels | `https://freewebnovel.com/novel/lord-of-the-mysteries` | ✅ | | |
-| [NovelUpdates](https://www.novelupdates.com) | Novels (catalog) | `https://www.novelupdates.com/series/lord-of-the-mysteries/` | | | |
-| [Flame Comics](https://flamecomics.xyz) | Novels | `https://flamecomics.xyz/novel/8` | ✅ | ✅ | ✅ |
-| [Flame Comics](https://flamecomics.xyz) | Manga / manhwa | `https://flamecomics.xyz/series/2` | ✅ | ✅ | ✅ |
+| Site | Type | Extension tracking | Auto-refresh | Full chapter list |
+|------|------|:--:|:--:|:--:|
+| [Novelfire](https://novelfire.net) | Novels | ✅ | ✅ | |
+| [NovelPhoenix](https://novelphoenix.com) | Novels | ✅ | ✅ | |
+| [Wuxiaworld](https://www.wuxiaworld.com) | Novels | ✅ | | |
+| [FreeWebNovel](https://freewebnovel.com) | Novels | ✅ | | |
+| [NovelUpdates](https://www.novelupdates.com) | Novels (catalog) | | | |
+| [Flame Comics](https://flamecomics.xyz) | Novels | ✅ | ✅ | ✅ |
+| [Flame Comics](https://flamecomics.xyz) | Manga / manhwa | ✅ | ✅ | ✅ |
 
 - **Extension tracking:** the browser extension records the chapter you're reading. On Flame Comics it reads the chapter number from the page title and also catches chapter changes made with Flame's Previous/Next buttons, which don't reload the page.
 - **Full chapter list:** the app stores every chapter the site lists, so **+1** follows the real list (2 → 2.5 → 3, gaps skipped), progress counts real chapters, and locked (paid) chapters are counted separately. Other sites use the next whole chapter.
