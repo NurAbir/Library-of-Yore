@@ -54,11 +54,10 @@ Supports **Novelfire**, **NovelPhoenix**, **Wuxiaworld**, **FreeWebNovel**, and 
 
 | Site | Type | Extension tracking | Auto-refresh | Full chapter list |
 |------|------|:--:|:--:|:--:|
-| [Novelfire](https://novelfire.net) | Novels | ✅ | ✅ | |
-| [NovelPhoenix](https://novelphoenix.com) | Novels | ✅ | ✅ | |
-| [Wuxiaworld](https://www.wuxiaworld.com) | Novels | ✅ | | |
-| [FreeWebNovel](https://freewebnovel.com) | Novels | ✅ | | |
-| [NovelUpdates](https://www.novelupdates.com) | Novels (catalog) | | | |
+| [Novelfire](https://novelfire.net) | Novels | ✅ | ✅ | ✅ |
+| [NovelPhoenix](https://novelphoenix.com) | Novels | ✅ | ✅ | ✅ |
+| [Wuxiaworld](https://www.wuxiaworld.com) | Novels | ✅ | ✅ | ✅ |
+| [FreeWebNovel](https://freewebnovel.com) | Novels | ✅ | ✅ | ✅ |
 | [Flame Comics](https://flamecomics.xyz) | Novels | ✅ | ✅ | ✅ |
 | [Flame Comics](https://flamecomics.xyz) | Manga / manhwa | ✅ | ✅ | ✅ |
 
@@ -67,7 +66,7 @@ Supports **Novelfire**, **NovelPhoenix**, **Wuxiaworld**, **FreeWebNovel**, and 
 - **Full chapter list:** the app knows every chapter the site has, so **+1** follows the real list (2 → 2.5 → 3, gaps skipped), progress counts real chapters, and locked (paid) chapters are counted separately. How it's known:
   - **Flame Comics** and **Wuxiaworld** send their chapter data with the novel page.
   - **Novelfire, NovelPhoenix** and **FreeWebNovel** number chapter links 1, 2, 3 … with no gaps, so the site's chapter count is the whole list (no need to download dozens of list pages).
-  - ¹ **Wuxiaworld:** when a novel's books don't add up exactly (a book holding one more chapter than its number range, or old "book.chapter" numbering like Coiling Dragon's 21.044), that novel uses the next whole chapter instead. Paid advance chapters are still counted as locked.
+  - **Wuxiaworld exception:** when a novel's books don't add up exactly (a book holding one more chapter than its number range, or old "book.chapter" numbering like Coiling Dragon's 21.044), that novel uses the next whole chapter instead. Paid advance chapters are still counted as locked.
 - **Sites that block plain requests** (for example with a Cloudflare "Just a moment..." check) are loaded in a real browser automatically: Microsoft Edge, which every Windows 10/11 PC has, or Google Chrome.
 - **Manga** are tracked for progress only (chapter pages aren't downloaded). A novel and its manhwa adaptation, such as ORV on Flame, are separate entries and never update each other.
 
