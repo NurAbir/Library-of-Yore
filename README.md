@@ -52,14 +52,15 @@ Supports **Novelfire**, **NovelPhoenix**, **Wuxiaworld**, **FreeWebNovel**, and 
 
 ## Supported Sites
 
-| Site | Type | URL Example | Extension tracking | Auto-refresh | Full chapter list |
-|------|------|-------------|:--:|:--:|:--:|
-| [Novelfire](https://novelfire.net) | Novels | `https://novelfire.net/book/shadow-slave` | ✅ | ✅ | ✅ |
-| [NovelPhoenix](https://novelphoenix.com) | Novels | `https://novelphoenix.com/novel/shadow-slave` | ✅ | ✅ | ✅ |
-| [Wuxiaworld](https://www.wuxiaworld.com) | Novels | `https://www.wuxiaworld.com/novel/renegade-immortal` | ✅ | ✅ | ✅ ¹ |
-| [FreeWebNovel](https://freewebnovel.com) | Novels | `https://freewebnovel.com/novel/lord-of-the-mysteries` | ✅ | ✅ | ✅ |
-| [Flame Comics](https://flamecomics.xyz) | Novels | `https://flamecomics.xyz/novel/8` | ✅ | ✅ | ✅ |
-| [Flame Comics](https://flamecomics.xyz) | Manga / manhwa | `https://flamecomics.xyz/series/2` | ✅ | ✅ | ✅ |
+| Site | Type | Extension tracking | Auto-refresh | Full chapter list |
+|------|------|:--:|:--:|:--:|
+| [Novelfire](https://novelfire.net) | Novels | ✅ | ✅ | |
+| [NovelPhoenix](https://novelphoenix.com) | Novels | ✅ | ✅ | |
+| [Wuxiaworld](https://www.wuxiaworld.com) | Novels | ✅ | | |
+| [FreeWebNovel](https://freewebnovel.com) | Novels | ✅ | | |
+| [NovelUpdates](https://www.novelupdates.com) | Novels (catalog) | | | |
+| [Flame Comics](https://flamecomics.xyz) | Novels | ✅ | ✅ | ✅ |
+| [Flame Comics](https://flamecomics.xyz) | Manga / manhwa | ✅ | ✅ | ✅ |
 
 - **Extension tracking:** the browser extension records the chapter you're reading. On Flame Comics it reads the chapter number from the page title and also catches chapter changes made with Flame's Previous/Next buttons, which don't reload the page.
 - **Auto-refresh:** every title from these sites is re-checked when the app starts (titles the site marks Completed are skipped).
