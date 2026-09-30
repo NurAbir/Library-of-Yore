@@ -64,8 +64,8 @@ const DETECTORS = {
   },
 
   /** freewebnovel.com
-   *  Chapter URL:  /{novel-slug}/chapter-{N}.html  or  /{novel-slug}/chapter-{N}
-   *  Novel URL:    /{novel-slug}.html  or  /{novel-slug}/
+   *  Chapter URL:  /novel/{novel-slug}/chapter-{N}  (older: /{novel-slug}/chapter-{N}.html)
+   *  Novel URL:    /novel/{novel-slug}              (older: /{novel-slug}.html)
    */
   "freewebnovel.com": () => {
     const m = location.pathname.match(/\/([^/]+)\/(chapter[-_][^/]*)/i);
@@ -80,7 +80,10 @@ const DETECTORS = {
       _ogTitle()?.replace(/\s*[-|]\s*chapter\s*\d+.*/i, "").trim() ||
       slug.replace(/-/g, " ");
 
-    const sourceUrl = `${location.origin}/${slug}.html`;
+    // Current site layout: /novel/{slug}/chapter-{N}; older: /{slug}/chapter-{N}.html
+    const sourceUrl = /^\/novel\//i.test(location.pathname)
+      ? `${location.origin}/novel/${slug}`
+      : `${location.origin}/${slug}.html`;
     return { novelTitle, ...ch, slug, sourceUrl };
   },
 
@@ -93,7 +96,13 @@ const DETECTORS = {
     const m = location.pathname.match(/\/novel\/([^/]+)\/((?:[^/]+-)?chapter[^/]*)/i);
     if (!m) return null;
     const slug = m[1];
-    const ch = _chapterFromPath(m[2]);
+    // Some older Wuxiaworld novels number chapters as book.chapter: the URL
+    // "cd-book-21-chapter-44" is chapter 21.044 on the site, so record it
+    // that way to match the chapter numbers the app gets from Wuxiaworld.
+    const book = m[2].match(/book-(\d+)-chapter-(\d+)/i);
+    const ch = book
+      ? { chapter: `${parseInt(book[1], 10)}.${book[2].padStart(3, "0")}`, ambiguous: false }
+      : _chapterFromPath(m[2]);
     if (!ch) return null;
 
     const novelTitle =
@@ -133,9 +142,6 @@ const DETECTORS = {
     };
   },
 };
-
-// novelupdates is a tracker site, not a reading site — no chapter detection needed
-// but we still want the content script loaded so the popup works on it.
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 

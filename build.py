@@ -25,7 +25,6 @@ COMMON_HIDDEN_IMPORTS = [
     "scrapers.novelphoenix",
     "scrapers.wuxiaworld",
     "scrapers.freewebnovel",
-    "scrapers.novelupdates",
     "scrapers.flamecomics",
     "utils.chapters",
     "database.connection",

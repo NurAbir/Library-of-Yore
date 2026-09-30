@@ -24,11 +24,9 @@ import json
 import re
 from typing import Optional, Tuple
 
-import requests
 from bs4 import BeautifulSoup
 
-from config import USER_AGENT, REQUEST_TIMEOUT
-from scrapers.base import BaseScraper, ScraperResult
+from scrapers.base import BaseScraper, ScraperResult, fetch_html, FetchError
 from utils import chapters
 
 BASE_URL = "https://flamecomics.xyz"
@@ -138,27 +136,12 @@ class FlameComicsScraper(BaseScraper):
             return result
         kind, item_id, page_url = parsed
 
-        html = None
         try:
-            resp = requests.get(page_url, headers={"User-Agent": USER_AGENT}, timeout=REQUEST_TIMEOUT)
-            resp.raise_for_status()
-            if "__NEXT_DATA__" in resp.text:
-                html = resp.text
-        except Exception:
-            html = None  # fall back to a real browser below
-
-        if html is None:
-            try:
-                from playwright.sync_api import sync_playwright
-                with sync_playwright() as p:
-                    browser = p.chromium.launch(headless=True)
-                    page = browser.new_context(user_agent=USER_AGENT).new_page()
-                    page.goto(page_url, wait_until="domcontentloaded", timeout=REQUEST_TIMEOUT * 1000)
-                    html = page.content()
-                    browser.close()
-            except Exception as e:
-                result.error_message = f"Scraping failed: {e}"
-                return result
+            # Plain request first; a real browser if the site blocks it
+            html = fetch_html(page_url, must_contain="__NEXT_DATA__")
+        except FetchError as e:
+            result.error_message = f"Scraping failed: {e}"
+            return result
 
         result = parse_page(html, kind, item_id, result)
         result.status = self._normalize_status(result.status)

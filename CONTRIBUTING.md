@@ -42,7 +42,7 @@ To add support for a new novel site:
 
 1. Create `scrapers/yoursite.py`
 2. Inherit from `BaseScraper`
-3. Implement `scrape(self, url) -> ScraperResult`
+3. Implement `scrape(self, url) -> ScraperResult`. Load pages with `fetch_html()` / `fetch_json()` from `scrapers/base.py`: they try a plain request first and fall back to a real browser (Edge, Chrome or Playwright's Chromium) when a site blocks it
 4. Add to `scrapers/__init__.py` factory, and add `--hidden-import scrapers.yoursite` to `build.py`, `build.bat` and `build_release.bat`
 5. Chapter numbers are strings, never floats: set `result.latest_chapter` with `utils.chapters.parse_chapter(...)` (e.g. `"621"`, `"2.5"`)
 6. If the site lists every chapter, also fill `result.chapter_list` (and `result.locked_list` for paid chapters) so progress follows the real list. For a manga site, set `result.content_type = "manga"`. `scrapers/flamecomics.py` is the reference for both

@@ -1,6 +1,6 @@
 # Library of Yore — User Manual
 
-**Version 2.1.0**
+**Version 2.2.0**
 
 A complete guide to installing, using, and troubleshooting Library of Yore, your personal desktop tracker for web novels and manga.
 
@@ -143,11 +143,8 @@ This is the fastest way to add a novel with full metadata.
 | NovelPhoenix | `https://novelphoenix.com/novel/shadow-slave` |
 | Wuxiaworld | `https://www.wuxiaworld.com/novel/renegade-immortal` |
 | FreeWebNovel | `https://freewebnovel.com/novel/lord-of-the-mysteries` |
-| NovelUpdates | `https://www.novelupdates.com/series/lord-of-the-mysteries/` |
 | Flame Comics (novel) | `https://flamecomics.xyz/novel/8` |
 | Flame Comics (manga) | `https://flamecomics.xyz/series/2` |
-
-> **Note:** NovelUpdates is a catalog site. It provides metadata but does not host chapters directly.
 
 > **Flame Comics:** pasting a chapter link (e.g. `https://flamecomics.xyz/novel/8/f48067c3fe28e0a0`) works too; it's turned into the title's main page. Flame hosts some titles as both a novel and a manhwa: add each as its own entry. Manga are tracked for progress only; pages aren't downloaded.
 
@@ -300,7 +297,7 @@ Every time Library of Yore opens, it silently re-scrapes your **Novelfire, Novel
 | Field | Updated? |
 |-------|---------|
 | Latest chapter | ✅ Yes: the highest chapter the site lists |
-| Chapter list and locked chapters | ✅ Yes (Flame Comics) |
+| Chapter list and locked chapters | ✅ Yes (every supported site; see the README's Supported Sites table for how) |
 | Status | ✅ Yes: picks up Ongoing → Completed transitions automatically. A novel you marked **Dropped** or **Planned** keeps your status |
 | Synopsis | ✅ Yes — pulls the current synopsis text from the novel page |
 | Cover image | ❌ No — covers are not re-downloaded on auto-refresh |
@@ -325,7 +322,8 @@ Cards that changed show the ✦ Updated badge. All changes are saved together on
 ### Notes
 
 - Auto-refresh runs entirely in the background — the UI stays fully responsive
-- Novelfire, NovelPhoenix and Flame Comics titles are refreshed. Wuxiaworld, FreeWebNovel and NovelUpdates entries are only updated when you click **Fetch Metadata** in the Edit dialog
+- Titles from every supported site (Novelfire, NovelPhoenix, Wuxiaworld, FreeWebNovel, Flame Comics) are refreshed
+- If a site blocks plain requests (for example a Cloudflare "Just a moment..." check), the app loads the page in Microsoft Edge or Google Chrome in the background instead. Nothing opens on screen
 - If a scrape fails for an individual novel (network error, site unavailable), it is silently skipped and the rest continue
 - Novels are refreshed one at a time with a short pause between them, so a large library takes a little while to finish
 
@@ -335,7 +333,7 @@ Cards that changed show the ✦ Updated badge. All changes are saved together on
 
 The **Library of Yore Browser Extension** tracks the chapter you are reading in your browser and automatically updates your progress in the app — no clicking +1, no manual entry.
 
-It works on **Novelfire**, **NovelPhoenix**, **Wuxiaworld**, **FreeWebNovel** and **Flame Comics** (both novels and manga). NovelUpdates is a catalog site with no chapters to read, so there's nothing to track there.
+It works on **Novelfire**, **NovelPhoenix**, **Wuxiaworld**, **FreeWebNovel** and **Flame Comics** (both novels and manga).
 
 > **Download:** The extension is available in the [Releases](https://github.com/NurAbir/Library-of-Yore/releases) section on GitHub. Download `Library.of.Yore.Browser.Extension.zip` from the latest release.
 
@@ -478,7 +476,7 @@ Click **Export Excel** in the toolbar. Choose a save location. The file opens in
 | Locked Behind | How many of those are locked on the site |
 | % Complete | Calculated completion percentage |
 | Source URL | Link to the novel page |
-| Source | novelfire / novelphoenix / wuxiaworld / freewebnovel / novelupdates / flamecomics / manual |
+| Source | novelfire / novelphoenix / wuxiaworld / freewebnovel / flamecomics / manual |
 | Last Read | ISO 8601 timestamp |
 | Date Added | When you first added it |
 | Rating | Your 0–10 rating |
@@ -662,7 +660,7 @@ If a cloud-sync tool (OneDrive, Dropbox, etc.) is set to sync `%LOCALAPPDATA%`, 
 
 - Verify the URL opens correctly in your browser
 - The website may have changed its layout — use **Manual Entry** instead
-- Novelfire uses JavaScript rendering; scraping it requires Playwright/Chromium (bundled in the exe)
+- When a site blocks plain requests, the app retries in a hidden browser: Microsoft Edge (preinstalled on Windows 10/11) or Google Chrome. If neither is installed, the error says so; install one of them
 - Webnovel.com is not supported — it uses aggressive anti-bot protection
 
 ### Synopsis Shows a "Summary" Prefix
@@ -789,6 +787,6 @@ Make sure you replaced `scrapers/novelfire.py` with the v1.3.0 version and rebui
 
 **Happy Reading!**
 
-*Library of Yore v2.1.0*
+*Library of Yore v2.2.0*
 
 </div>

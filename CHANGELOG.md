@@ -2,6 +2,28 @@
 
 All notable changes to Library of Yore.
 
+## [2.2.0] - 2026-09-30
+
+Every supported site now has browser-extension tracking, startup auto-refresh and a full chapter list. NovelUpdates support is removed.
+
+### Added
+- **Full chapter lists for Novelfire, NovelPhoenix, FreeWebNovel and Wuxiaworld** (Flame Comics already had one), so +1, "chapters behind" and % follow each site's real chapters. How each is known, verified against the live sites:
+  - **Novelfire / NovelPhoenix:** chapter links are numbered by position, 1 … N with no gaps (checked on 11 novels, including ones whose last chapter is titled "Epilogue"), so the chapter count on the novel page is the whole list. No extra requests.
+  - **FreeWebNovel:** same numbering (checked on 7 novels); the total comes from the site's own chapter-list endpoint in one small request.
+  - **Wuxiaworld:** read from the data the novel page already carries (chapter ranges and counts per book). When a novel's books don't add up exactly, or it uses old book.chapter numbering (Coiling Dragon: 21.044), it falls back to the next whole chapter.
+- **Locked chapters on Wuxiaworld:** paid "advance" chapters are counted, like Flame's.
+- **Startup auto-refresh for Wuxiaworld and FreeWebNovel.** Every title from a supported site is now refreshed (except ones the site marks Completed).
+- **Real-browser fallback for every scraper.** If a site blocks a plain request (e.g. a Cloudflare "Just a moment..." page), the page is loaded in a hidden browser instead: Microsoft Edge (on every Windows 10/11 PC), then Google Chrome, then Playwright's Chromium. Before, only Novelfire and NovelPhoenix had a fallback, and it needed Playwright's own browser, which the packaged app doesn't include.
+
+### Changed
+- **Novelfire / NovelPhoenix** parsing reads the page's header stats (chapter count, status), genres and cover directly instead of scanning the whole page text. NovelPhoenix now reuses the Novelfire scraper (same site template).
+- **FreeWebNovel** reads its metadata tags (status, author, genres, latest chapter) and the real synopsis (it used to pick up the site's generic "Read … online" description). Old `/{slug}.html` links still work.
+- **Wuxiaworld** status comes from the novel's tags ("Ongoing"/"Completed"); the numeric status field doesn't match what the site shows (it's 0 for Emperor's Domination, which is ongoing).
+- **Browser extension:** Wuxiaworld URLs like `cd-book-21-chapter-44` are recorded as 21.044, matching the site's numbering; FreeWebNovel chapter pages link to `/novel/{slug}` entries.
+
+### Removed
+- **NovelUpdates support**, completely: scraper, build entries, extension permissions and site lists, and documentation. NovelUpdates hosts no chapters, its release lists are per translator group, and its full list needs a signed-in session. Existing library entries with a NovelUpdates link stay in the library; they just won't auto-fill or sync. Change their Source URL to the site you read on.
+
 ## [2.1.0] - 2026-09-28
 
 Decimal chapters, a real "Not started" state, progress based on each site's actual chapter list, and **Flame Comics** support for both web novels and manga.

@@ -12,7 +12,7 @@ Built with Python and PyQt6 — stored locally, no database server required.
 [![PyQt6](https://img.shields.io/badge/PyQt6-6.4+-green.svg)](https://riverbankcomputing.com/software/pyqt)
 [![Storage](https://img.shields.io/badge/Storage-Local%20JSON-lightgrey.svg)]()
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-2.1.0-orange.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/Version-2.2.0-orange.svg)](CHANGELOG.md)
 
 </div>
 
@@ -24,7 +24,7 @@ Built with Python and PyQt6 — stored locally, no database server required.
 
 A companion **browser extension** lets your reading progress update automatically as you read, on every supported reading site including **Flame Comics novels and manga**, even when the app window is closed, since Library of Yore runs quietly in the system tray.
 
-Supports **Novelfire**, **NovelPhoenix**, **Wuxiaworld**, **FreeWebNovel**, **NovelUpdates**, and **Flame Comics** (web novels and manga).
+Supports **Novelfire**, **NovelPhoenix**, **Wuxiaworld**, **FreeWebNovel**, and **Flame Comics** (web novels and manga).
 
 ---
 
@@ -34,9 +34,9 @@ Supports **Novelfire**, **NovelPhoenix**, **Wuxiaworld**, **FreeWebNovel**, **No
 |---------|-------------|
 | **Visual Library** | Responsive grid view with cover images, progress bars, and status badges — column count adapts to your window size |
 | **Auto-Scrape Metadata** | Paste a URL and fetch title, author, cover, synopsis, and chapter count automatically |
-| **Auto-Refresh on Startup** | Novelfire, NovelPhoenix and Flame Comics titles are silently re-scraped in the background when the app opens: latest chapter, chapter list, status, and synopsis update automatically |
+| **Auto-Refresh on Startup** | Every title from a supported site is silently re-scraped in the background when the app opens: latest chapter, chapter list, status, and synopsis update automatically |
 | **Updated Badge** | Cards that received new data during auto-refresh show a gold ✦ Updated badge |
-| **Chapter Tracking** | Decimal chapters (2.5, 0.01), a real "Not started" state, chapters behind, and completion %. Where the site's full chapter list is known (Flame Comics), +1 and progress follow that list, including gaps, chapter 0 and locked chapters |
+| **Chapter Tracking** | Decimal chapters (2.5, 0.01), a real "Not started" state, chapters behind, and completion %. +1 and progress follow each site's full chapter list, including gaps, chapter 0 and locked (paid) chapters |
 | **Novels and Manga** | Each entry is a novel or a manga; a novel and its manhwa adaptation are tracked separately and never mixed up |
 | **Status Management** | Ongoing, Completed, Hiatus, Dropped, Planned. Auto-refresh never overrides a novel you marked Dropped or Planned |
 | **Search & Filter** | Filter by status, search by title/author/notes, sort by last read / rating / progress |
@@ -54,16 +54,20 @@ Supports **Novelfire**, **NovelPhoenix**, **Wuxiaworld**, **FreeWebNovel**, **No
 
 | Site | Type | URL Example | Extension tracking | Auto-refresh | Full chapter list |
 |------|------|-------------|:--:|:--:|:--:|
-| [Novelfire](https://novelfire.net) | Novels | `https://novelfire.net/book/shadow-slave` | ✅ | ✅ | |
-| [NovelPhoenix](https://novelphoenix.com) | Novels | `https://novelphoenix.com/novel/shadow-slave` | ✅ | ✅ | |
-| [Wuxiaworld](https://www.wuxiaworld.com) | Novels | `https://www.wuxiaworld.com/novel/renegade-immortal` | ✅ | | |
-| [FreeWebNovel](https://freewebnovel.com) | Novels | `https://freewebnovel.com/novel/lord-of-the-mysteries` | ✅ | | |
-| [NovelUpdates](https://www.novelupdates.com) | Novels (catalog) | `https://www.novelupdates.com/series/lord-of-the-mysteries/` | | | |
+| [Novelfire](https://novelfire.net) | Novels | `https://novelfire.net/book/shadow-slave` | ✅ | ✅ | ✅ |
+| [NovelPhoenix](https://novelphoenix.com) | Novels | `https://novelphoenix.com/novel/shadow-slave` | ✅ | ✅ | ✅ |
+| [Wuxiaworld](https://www.wuxiaworld.com) | Novels | `https://www.wuxiaworld.com/novel/renegade-immortal` | ✅ | ✅ | ✅ ¹ |
+| [FreeWebNovel](https://freewebnovel.com) | Novels | `https://freewebnovel.com/novel/lord-of-the-mysteries` | ✅ | ✅ | ✅ |
 | [Flame Comics](https://flamecomics.xyz) | Novels | `https://flamecomics.xyz/novel/8` | ✅ | ✅ | ✅ |
 | [Flame Comics](https://flamecomics.xyz) | Manga / manhwa | `https://flamecomics.xyz/series/2` | ✅ | ✅ | ✅ |
 
 - **Extension tracking:** the browser extension records the chapter you're reading. On Flame Comics it reads the chapter number from the page title and also catches chapter changes made with Flame's Previous/Next buttons, which don't reload the page.
-- **Full chapter list:** the app stores every chapter the site lists, so **+1** follows the real list (2 → 2.5 → 3, gaps skipped), progress counts real chapters, and locked (paid) chapters are counted separately. Other sites use the next whole chapter.
+- **Auto-refresh:** every title from these sites is re-checked when the app starts (titles the site marks Completed are skipped).
+- **Full chapter list:** the app knows every chapter the site has, so **+1** follows the real list (2 → 2.5 → 3, gaps skipped), progress counts real chapters, and locked (paid) chapters are counted separately. How it's known:
+  - **Flame Comics** and **Wuxiaworld** send their chapter data with the novel page.
+  - **Novelfire, NovelPhoenix** and **FreeWebNovel** number chapter links 1, 2, 3 … with no gaps, so the site's chapter count is the whole list (no need to download dozens of list pages).
+  - ¹ **Wuxiaworld:** when a novel's books don't add up exactly (a book holding one more chapter than its number range, or old "book.chapter" numbering like Coiling Dragon's 21.044), that novel uses the next whole chapter instead. Paid advance chapters are still counted as locked.
+- **Sites that block plain requests** (for example with a Cloudflare "Just a moment..." check) are loaded in a real browser automatically: Microsoft Edge, which every Windows 10/11 PC has, or Google Chrome.
 - **Manga** are tracked for progress only (chapter pages aren't downloaded). A novel and its manhwa adaptation, such as ORV on Flame, are separate entries and never update each other.
 
 ---
@@ -243,7 +247,6 @@ libraryofyore/
 │   ├── novelphoenix.py     # NovelPhoenix.com scraper (requests + Playwright fallback)
 │   ├── wuxiaworld.py       # Wuxiaworld.com scraper
 │   ├── freewebnovel.py     # FreeWebNovel.com scraper
-│   ├── novelupdates.py     # NovelUpdates.com scraper
 │   └── flamecomics.py      # Flame Comics scraper (novels + manga, reads the page's embedded chapter data)
 │
 ├── ui/
@@ -286,7 +289,7 @@ All data is stored **locally** — nothing leaves your machine, and no database 
 
 | Issue | Solution |
 |-------|----------|
-| Scraping fails | Site layout may have changed — use Manual Entry instead |
+| Scraping fails | Site layout may have changed: use Manual Entry instead. If the site blocks plain requests, the app retries in Microsoft Edge or Google Chrome; make sure one of them is installed |
 | Covers don't load | Check internet; try Fetch Metadata again |
 | App won't start (no window) | Check `crash_log.txt` next to the `.exe` for the error |
 | App settings corrupted | Delete `%LOCALAPPDATA%\LibraryOfYore\config.json` to reset |

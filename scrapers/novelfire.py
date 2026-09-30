@@ -1,11 +1,25 @@
-"""Novelfire.net scraper using requests + BeautifulSoup with Playwright fallback."""
-import re
-import requests
-from bs4 import BeautifulSoup
-from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeout
+"""Novelfire.net scraper (also the base for NovelPhoenix, which runs the same
+site template).
 
-from scrapers.base import BaseScraper, ScraperResult
-from config import USER_AGENT, REQUEST_TIMEOUT
+Verified against the live site (September 2026):
+  - The novel page's header shows the chapter count and status:
+      <div class="header-stats"><span>3200 Chapters</span> ... <span>Ongoing Status</span></div>
+  - Chapter URLs are /book/{slug}/chapter-{N} where N is the chapter's
+    position, running 1, 2, 3 ... up to the chapter count with no gaps (the
+    chapter list pages end exactly at chapter-{count}), even when a chapter's
+    own title says "Epilogue" or carries a different number.
+  - So the full chapter list is 1..count, known from the novel page alone.
+    Fetching the real list would take one request per 100 chapters (32 for a
+    3200-chapter novel) and wouldn't add anything.
+The browser extension records the same N from the chapter URL, so progress
+and the list always use the same numbering.
+"""
+import re
+
+from bs4 import BeautifulSoup
+
+from scrapers.base import BaseScraper, ScraperResult, fetch_html, parse_chapter_label, FetchError
+from utils import chapters
 
 
 class NovelfireScraper(BaseScraper):
@@ -13,165 +27,108 @@ class NovelfireScraper(BaseScraper):
 
     SOURCE_NAME = "novelfire"
     DOMAIN_PATTERNS = ["novelfire.net", "novelfire.com"]
+    SITE_NAME = "Novelfire"
+    BOOK_PATH = "book"          # /book/{slug}
+
+    def canonical_url(self, url: str) -> str:
+        """Novel page URL for any novel or chapter URL on this site."""
+        m = re.match(rf"^(https?://[^/]+)/{self.BOOK_PATH}/([^/?#]+)", url.strip(), re.IGNORECASE)
+        return f"{m.group(1)}/{self.BOOK_PATH}/{m.group(2)}" if m else url.strip()
 
     def scrape(self, url: str) -> ScraperResult:
         result = ScraperResult(source_name=self.SOURCE_NAME)
-
         if not self.can_handle(url):
-            result.error_message = "Invalid Novelfire URL"
+            result.error_message = f"Invalid {self.SITE_NAME} URL"
+            return result
+        page_url = self.canonical_url(url)
+        try:
+            html = fetch_html(page_url, must_contain="header-stats")
+        except FetchError as e:
+            result.error_message = f"Scraping failed: {e}"
             return result
 
-        # Try lightweight requests first
-        try:
-            headers = {"User-Agent": USER_AGENT}
-            resp = requests.get(url, headers=headers, timeout=REQUEST_TIMEOUT)
-            resp.raise_for_status()
-            soup = BeautifulSoup(resp.text, "html.parser")
-            result = self._parse_soup(soup, url, result)
-            if result.title:
-                result.success = True
-                return result
-        except Exception:
-            pass  # Fallback to Playwright
-
-        # Playwright fallback
-        try:
-            with sync_playwright() as p:
-                browser = p.chromium.launch(headless=True)
-                context = browser.new_context(user_agent=USER_AGENT)
-                page = context.new_page()
-                page.goto(url, wait_until="domcontentloaded", timeout=REQUEST_TIMEOUT * 1000)
-                page.wait_for_timeout(3000)  # Let JS hydrate
-                html = page.content()
-                browser.close()
-
-            soup = BeautifulSoup(html, "html.parser")
-            result = self._parse_soup(soup, url, result)
-            result.success = bool(result.title)
-            if not result.title:
-                result.error_message = "Could not extract title from Novelfire."
-
-        except PlaywrightTimeout:
-            result.error_message = "Timeout: Novelfire took too long to load."
-        except Exception as e:
-            result.error_message = f"Scraping failed: {str(e)}"
-
+        result = self._parse_soup(BeautifulSoup(html, "html.parser"), page_url, result)
+        result.success = bool(result.title)
+        if not result.success:
+            result.error_message = f"Could not extract title from {self.SITE_NAME}."
         return result
 
     def _parse_soup(self, soup, url: str, result: ScraperResult) -> ScraperResult:
-        """Extract data from Novelfire HTML."""
+        """Extract data from a Novelfire-template novel page."""
+        def text(el):
+            return el.get_text(" ", strip=True) if el else ""
+
         # Title
-        title_selectors = [
-            "h1.novel-title",
-            "h1",
-            ".novel-title",
-            "[property='og:title']",
-        ]
-        for sel in title_selectors:
-            el = soup.select_one(sel)
-            if el:
-                if sel.startswith("[property"):
-                    result.title = el.get("content", "").strip()
-                else:
-                    result.title = el.get_text(strip=True)
-                if result.title:
-                    break
+        for sel in ["h1.novel-title", "h1", ".novel-title"]:
+            result.title = text(soup.select_one(sel))
+            if result.title:
+                break
+        if not result.title:
+            og = soup.select_one("meta[property='og:title']")
+            result.title = (og.get("content", "") if og else "").split(" - ")[0].strip()
 
         # Author
-        author_selectors = [
-            ".author a",
-            ".novel-author",
-            "[property='og:author']",
-            "a[href*='author']",
-        ]
-        for sel in author_selectors:
-            el = soup.select_one(sel)
-            if el:
-                result.author = el.get_text(strip=True) if not sel.startswith("[property") else el.get("content", "")
-                if result.author:
-                    break
+        for sel in [".author a", "[itemprop='author']", ".novel-author"]:
+            result.author = text(soup.select_one(sel))
+            if result.author:
+                break
 
-        # Cover
-        cover_selectors = [
-            ".novel-cover img",
-            ".img-cover img",
-            "img[alt*='cover']",
-            "[property='og:image']",
-        ]
-        for sel in cover_selectors:
-            el = soup.select_one(sel)
-            if el:
-                src = el.get("src") or el.get("content") or el.get("data-src")
-                if src:
-                    result.cover_url = src
-                    break
+        # Cover: og:image is always the real cover on this template
+        og_image = soup.select_one("meta[property='og:image']")
+        if og_image and og_image.get("content"):
+            result.cover_url = og_image["content"]
+        else:
+            img = soup.select_one(".novel-cover img, .img-cover img")
+            if img:
+                result.cover_url = img.get("data-src") or img.get("src") or ""
 
         # Synopsis
-        synopsis_selectors = [
-            ".description",
-            ".novel-description",
-            ".summary",
-            "[property='og:description']",
-        ]
-        for sel in synopsis_selectors:
-            el = soup.select_one(sel)
-            if el:
-                result.synopsis = el.get_text(strip=True) if not sel.startswith("[property") else el.get("content", "")
-                if result.synopsis:
-                    break
-
-        # Strip "Show More" / "Show Less" / "Read More" UI button text scraped along with synopsis,
-        # and leading section labels like "Summary" or "Description" that bleed into the text.
+        for sel in [".summary", ".description", ".novel-description"]:
+            result.synopsis = soup.select_one(sel).get_text(" ", strip=True) if soup.select_one(sel) else ""
+            if result.synopsis:
+                break
+        if not result.synopsis:
+            og = soup.select_one("meta[property='og:description']")
+            result.synopsis = og.get("content", "") if og else ""
         if result.synopsis:
-            result.synopsis = re.sub(
-                r'^(summary|description|synopsis)\s*[:\-]?\s*',
-                '', result.synopsis, flags=re.IGNORECASE
-            ).strip()
-            result.synopsis = re.sub(
-                r'\s*(show\s+more|show\s+less|read\s+more|\.{3}more)\s*$',
-                '', result.synopsis, flags=re.IGNORECASE
-            ).strip()
+            # Strip "Summary"/"Description" labels and "Show More" button text
+            result.synopsis = re.sub(r"^(summary|description|synopsis)\s*[:\-]?\s*", "", result.synopsis,
+                                     flags=re.IGNORECASE).strip()
+            result.synopsis = re.sub(r"\s*(show\s+more|show\s+less|read\s+more|\.{3}more)\s*$", "",
+                                     result.synopsis, flags=re.IGNORECASE).strip()
 
-        # Chapter count & status from text
-        text_blob = soup.get_text(separator=" ", strip=True)
+        # Chapter count and status from the header stats
+        count = None
+        status_text = ""
+        for span in soup.select(".header-stats > span, .header-stats span"):
+            t = span.get_text(" ", strip=True)
+            if count is None and re.search(r"chapters?", t, re.IGNORECASE):
+                digits = re.sub(r"[^\d]", "", t)
+                count = int(digits) if digits else None
+            elif not status_text and re.search(r"status", t, re.IGNORECASE):
+                status_text = re.sub(r"status", "", t, flags=re.IGNORECASE).strip()
+        result.status = self._normalize_status(status_text) if status_text else "ongoing"
 
-        # Use base class method — handles any digit length (fixes 4+ digit chapters e.g. 2111)
-        result.latest_chapter = self._extract_chapter_number(text_blob)
-
-        # Status — use targeted selectors first so synopsis words ("complete", "finished") don't
-        # false-match when the full page blob is used.
-        status_text = None
-        for sel in [".status", ".novel-status", ".label-status", ".info-status", "[class*='status']"]:
-            el = soup.select_one(sel)
-            if el:
-                txt = el.get_text(strip=True)
-                if txt and len(txt) < 40:   # Status labels are always short
-                    status_text = txt
-                    break
-        if not status_text:
-            # Narrow to the info / header section only — avoids synopsis contamination
-            info_el = (
-                soup.select_one(".novel-info")
-                or soup.select_one(".info-section")
-                or soup.select_one(".header-info")
-                or soup.select_one(".novel-header")
-            )
-            status_text = info_el.get_text(separator=" ", strip=True) if info_el else text_blob[:800]
-        result.status = self._normalize_status(status_text)
+        if count:
+            # Chapters are numbered by position 1..count (see module docstring)
+            result.latest_chapter = str(count)
+            result.chapter_list = [str(n) for n in range(1, count + 1)]
+            result.raw_data["chapter_list_source"] = "sequential chapter URLs 1..count"
+        else:
+            latest_label = soup.select_one("a[href$='/chapters'] .latest")
+            result.latest_chapter = parse_chapter_label(text(latest_label)) if latest_label else None
+            if not result.latest_chapter:
+                result.latest_chapter = self._extract_chapter_number(soup.get_text(" ", strip=True))
 
         # Genres
-        genre_selectors = [
-            ".genre a",
-            ".tags a",
-            ".categories a",
-        ]
-        genres = set()
-        for sel in genre_selectors:
-            for el in soup.select(sel):
-                txt = el.get_text(strip=True)
-                if txt and len(txt) < 30:
-                    genres.add(txt)
-        result.genres = list(genres)[:5]
+        genres = []
+        for el in soup.select(".categories a, .genre a, .tags a"):
+            g = el.get_text(strip=True)
+            if g and len(g) < 30 and g not in genres:
+                genres.append(g)
+        result.genres = genres[:5]
 
-        result.raw_data = {"url": url}
+        result.raw_data["url"] = url
+        if result.latest_chapter:
+            result.latest_chapter = chapters.parse_chapter(result.latest_chapter)
         return result

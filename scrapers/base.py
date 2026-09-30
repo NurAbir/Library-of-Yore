@@ -108,3 +108,133 @@ class BaseScraper:
         if any(w in t for w in ["drop", "cancel"]):
             return "dropped"
         return "ongoing"
+
+
+# ── Fetching, with a real-browser fallback ───────────────────────────────────
+#
+# Every scraper fetches through these helpers (since v2.2.0). They try a plain
+# HTTP request first (fast, no browser needed) and, if the site blocks it or
+# answers with a bot-check page (e.g. Cloudflare's "Just a moment..."), load
+# the page in a headless Chromium via Playwright instead, which passes those
+# checks the way a normal browser does.
+
+_BLOCK_MARKERS = (
+    "Just a moment...",
+    "cf-browser-verification",
+    "challenges.cloudflare.com",
+    "Attention Required! | Cloudflare",
+    "Enable JavaScript and cookies to continue",
+)
+
+
+class FetchError(Exception):
+    """A page couldn't be loaded, even through the browser fallback."""
+
+
+def looks_blocked(text: str) -> bool:
+    head = (text or "")[:20000]
+    return any(marker in head for marker in _BLOCK_MARKERS)
+
+
+def _request_headers(referer: Optional[str] = None) -> dict:
+    from config import USER_AGENT
+    headers = {
+        "User-Agent": USER_AGENT,
+        "Accept-Language": "en-US,en;q=0.9",
+    }
+    if referer:
+        headers["Referer"] = referer
+    return headers
+
+
+def fetch_html(url: str, must_contain: Optional[str] = None, use_browser_fallback: bool = True) -> str:
+    """Return a page's HTML. `must_contain` is a marker the real page always
+    has (e.g. "__NEXT_DATA__"); a response without it counts as blocked."""
+    import requests
+    from config import REQUEST_TIMEOUT
+
+    try:
+        resp = requests.get(url, headers=_request_headers(), timeout=REQUEST_TIMEOUT)
+        if resp.status_code < 400 and not looks_blocked(resp.text) \
+                and (must_contain is None or must_contain in resp.text):
+            return resp.text
+        problem = f"HTTP {resp.status_code}" if resp.status_code >= 400 else "bot check / unexpected page"
+    except Exception as e:  # network error, timeout, TLS, ...
+        problem = str(e)
+
+    if not use_browser_fallback:
+        raise FetchError(f"Couldn't load {url}: {problem}")
+    return _browser_fetch(url, must_contain)
+
+
+def _launch_browser(p):
+    """Start a headless browser: Microsoft Edge (installed on every Windows
+    10/11 PC), then Google Chrome, then Playwright's own Chromium if someone
+    ran `playwright install chromium`. The packaged .exe doesn't ship a
+    browser of its own, so the installed ones come first."""
+    errors = []
+    for options in ({"channel": "msedge"}, {"channel": "chrome"}, {}):
+        try:
+            return p.chromium.launch(headless=True, **options)
+        except Exception as e:
+            errors.append(f"{options.get('channel', 'playwright chromium')}: {str(e).splitlines()[0]}")
+    raise FetchError(
+        "No browser available for sites that block plain requests. Install Microsoft Edge "
+        "or Google Chrome (or run `playwright install chromium`). Details: " + "; ".join(errors)
+    )
+
+
+def _browser_fetch(url: str, must_contain: Optional[str] = None, json_url: Optional[str] = None):
+    """Load `url` in headless Chromium. Returns the page HTML, or, when
+    `json_url` is given, the text of fetching json_url from inside that page
+    (so it carries the same cookies the page earned)."""
+    from config import REQUEST_TIMEOUT, USER_AGENT
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError as e:
+        raise FetchError(f"Site blocked the request and the browser fallback isn't available ({e})")
+
+    try:
+        with sync_playwright() as p:
+            browser = _launch_browser(p)
+            try:
+                page = browser.new_context(user_agent=USER_AGENT).new_page()
+                page.goto(url, wait_until="domcontentloaded", timeout=REQUEST_TIMEOUT * 1000)
+                # Give a bot check up to ~15 s to clear itself
+                for _ in range(15):
+                    html = page.content()
+                    if not looks_blocked(html) and (must_contain is None or must_contain in html):
+                        break
+                    page.wait_for_timeout(1000)
+                else:
+                    raise FetchError(f"{url} kept showing a bot check in the browser too")
+                if json_url:
+                    return page.evaluate(
+                        "async (u) => { const r = await fetch(u, {credentials: 'include'}); return await r.text(); }",
+                        json_url,
+                    )
+                return html
+            finally:
+                browser.close()
+    except FetchError:
+        raise
+    except Exception as e:
+        raise FetchError(f"Browser fallback failed for {url}: {e}")
+
+
+def fetch_json(url: str, params: dict, page_url: str):
+    """GET a JSON endpoint; falls back to calling it from inside the site's
+    own page in the browser if the plain request is blocked."""
+    import json as _json
+    import requests
+    from urllib.parse import urlencode
+    from config import REQUEST_TIMEOUT
+
+    full_url = url + ("&" if "?" in url else "?") + urlencode(params)
+    try:
+        resp = requests.get(full_url, headers=_request_headers(referer=page_url), timeout=REQUEST_TIMEOUT)
+        if resp.status_code < 400 and not looks_blocked(resp.text):
+            return resp.json()
+    except Exception:
+        pass
+    return _json.loads(_browser_fetch(page_url, json_url=full_url))

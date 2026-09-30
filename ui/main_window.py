@@ -536,17 +536,19 @@ class MainWindow(QMainWindow):
             self.statusbar.showMessage(f"Updated '{novel.title}' to chapter {next_chapter}", 3000)
 
     def _start_novelfire_refresh(self):
-        """On startup, silently re-scrape Novelfire, NovelPhoenix and Flame
-        Comics novels to pull in the latest chapter, chapter list and status,
-        then update each card. Novels the site already marks Completed are
+        """On startup, silently re-scrape every novel saved from a supported
+        site to pull in the latest chapter, chapter list and status, then
+        update each card. Novels the site already marks Completed are
         skipped: they don't get new chapters."""
         if not self.repo:
             return
+        from scrapers import get_scraper_for_url
         all_novels = self.repo.get_all()
-        AUTO_REFRESH_DOMAINS = ("novelfire", "novelphoenix", "flamecomics")
+        # Every novel saved from a supported site (since v2.2.0 that's all of
+        # them: Novelfire, NovelPhoenix, Wuxiaworld, FreeWebNovel, Flame).
         novelfire_novels = [
             n for n in all_novels
-            if n.source_url and any(d in n.source_url.lower() for d in AUTO_REFRESH_DOMAINS)
+            if n.source_url and get_scraper_for_url(n.source_url) is not None
             and n.site_status != "completed"
         ]
         if not novelfire_novels:
@@ -636,7 +638,7 @@ class MainWindow(QMainWindow):
             self, "About Library of Yore",
             f"<h2>Library of Yore v{APP_VERSION}</h2>"
             "<p>A desktop bookmark tracker for web novels.</p>"
-            "<p>Supports: Novelfire, NovelPhoenix, Wuxiaworld, FreeWebNovel, NovelUpdates, "
+            "<p>Supports: Novelfire, NovelPhoenix, Wuxiaworld, FreeWebNovel, "
             "Flame Comics (novels and manga)</p>"
             "<p>Built with Python and PyQt6. Stored locally — no database server required.</p>"
             f"<p><b>Browser Extension API:</b> localhost:{api_server.PORT}</p>"

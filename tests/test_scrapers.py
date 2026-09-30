@@ -134,12 +134,7 @@ def test_flame_scrape_end_to_end_with_mocked_request(monkeypatch):
     chs = [_novel_chapter(f"{n}.00") for n in range(3, 0, -1)]
     html = _page("novel", ORV_NOVEL, chs)
 
-    class Resp:
-        text = html
-        def raise_for_status(self):
-            pass
-
-    monkeypatch.setattr(flamecomics.requests, "get", lambda *a, **k: Resp())
+    monkeypatch.setattr(flamecomics, "fetch_html", lambda *a, **k: html)
     scraper = get_scraper_for_url("https://flamecomics.xyz/novel/8/f48067c3fe28e0a0")
     assert isinstance(scraper, flamecomics.FlameComicsScraper)
     r = scraper.scrape("https://flamecomics.xyz/novel/8/f48067c3fe28e0a0")
