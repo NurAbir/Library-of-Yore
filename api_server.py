@@ -247,9 +247,21 @@ def _is_distinctive_slug(slug: str) -> bool:
     return True
 
 
+def _series_key(url: str) -> Optional[str]:
+    """A site's own stable series id found in a URL, for sites whose slug can
+    change while the id stays (MangaFire: /title/zl363-lagg was /manga/lag.zl363).
+    None for every other site, which are matched by path instead."""
+    if _domain(url) != "mangafire.to":
+        return None
+    from scrapers.mangafire import series_id   # imported here to keep this module light
+    return series_id(url)
+
+
 def _find_by_url(novels, browser_url: str):
     """
     Match a browser chapter URL back to a stored novel. Same domain required.
+      0. Sites with a stable series id in the URL (MangaFire) match on that id,
+         whichever URL format or slug either side uses.
       1. The stored novel page's path is a whole-segment prefix of the
          chapter URL's path (/book/shadow-slave -> /book/shadow-slave/chapter-5,
          but /series/1 does NOT match /series/12/...). Longest prefix wins.
@@ -262,6 +274,12 @@ def _find_by_url(novels, browser_url: str):
     browser_segs = _path_segments(browser_url)
     if not browser_domain or not browser_segs:
         return None
+
+    key = _series_key(browser_url)
+    if key:
+        for n in novels:
+            if n.source_url and _series_key(n.source_url) == key:
+                return n
 
     best, best_len = None, 0
     slug_match = None

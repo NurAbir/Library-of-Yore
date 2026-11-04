@@ -61,6 +61,29 @@ function setDot(state) {
 
 function capitalize(s) { return s ? s[0].toUpperCase() + s.slice(1) : s; }
 
+// ── Why a supported site's page wasn't recognised ───────────────────────────
+
+async function showIdleDebug() {
+  const el = $("idle-debug");
+  el.classList.add("hidden");
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab || !tab.url) return;
+    const u = new URL(tab.url);
+    const sites = [...document.querySelectorAll(".site-badge")].map((b) => b.textContent.trim());
+    if (!sites.some((s) => u.hostname === s || u.hostname.endsWith("." + s))) return;
+    let hint = "";
+    try {
+      const reply = await chrome.tabs.sendMessage(tab.id, { type: "PING_CONTENT" });
+      if (reply && reply.debug) hint = ` ${reply.debug}`;
+    } catch (_) { /* no content script in this tab: the extension needs a reload */ }
+    el.textContent =
+      `This page wasn't recognised as a chapter: ${u.pathname}.${hint} ` +
+      "If it is a chapter, reload the extension at chrome://extensions, then refresh the page.";
+    el.classList.remove("hidden");
+  } catch (_) { /* no access to the tab's URL: say nothing */ }
+}
+
 // ── Render ───────────────────────────────────────────────────────────────────
 
 function render(state) {
@@ -74,6 +97,7 @@ function render(state) {
 
   if (!state.reading) {
     showView("idle");
+    showIdleDebug();
     return;
   }
 

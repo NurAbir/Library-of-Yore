@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Library of Yore — Reading Tracker",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "description": "Automatically tracks your reading progress on novel sites and syncs to Library of Yore.",
 
   "icons": {
@@ -37,7 +37,9 @@
         "*://wuxiaworld.com/*",
         "*://www.wuxiaworld.com/*",
         "*://flamecomics.xyz/*",
-        "*://www.flamecomics.xyz/*"
+        "*://www.flamecomics.xyz/*",
+        "*://mangafire.to/*",
+        "*://www.mangafire.to/*"
       ],
       "js": ["content.js"],
       "run_at": "document_idle"

@@ -12,7 +12,7 @@ Built with Python and PyQt6 — stored locally, no database server required.
 [![PyQt6](https://img.shields.io/badge/PyQt6-6.4+-green.svg)](https://riverbankcomputing.com/software/pyqt)
 [![Storage](https://img.shields.io/badge/Storage-Local%20JSON-lightgrey.svg)]()
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-2.2.0-orange.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/Version-2.3.0-orange.svg)](CHANGELOG.md)
 
 </div>
 
@@ -22,9 +22,9 @@ Built with Python and PyQt6 — stored locally, no database server required.
 
 **Library of Yore** is a desktop application for tracking your web novel and manga reading progress. Paste a novel or series URL and it automatically fetches the title, author, cover, synopsis, and latest chapter. Track where you left off, filter by status, and export your library to Excel.
 
-A companion **browser extension** lets your reading progress update automatically as you read, on every supported reading site including **Flame Comics novels and manga**, even when the app window is closed, since Library of Yore runs quietly in the system tray.
+A companion **browser extension** lets your reading progress update automatically as you read, on every supported reading site including **Flame Comics novels and manga** and **MangaFire**, even when the app window is closed, since Library of Yore runs quietly in the system tray.
 
-Supports **Novelfire**, **NovelPhoenix**, **Wuxiaworld**, **FreeWebNovel**, and **Flame Comics** (web novels and manga).
+Supports **Novelfire**, **NovelPhoenix**, **Wuxiaworld**, **FreeWebNovel**, **Flame Comics** (web novels and manga), and **MangaFire** (manga).
 
 ---
 
@@ -45,7 +45,7 @@ Supports **Novelfire**, **NovelPhoenix**, **Wuxiaworld**, **FreeWebNovel**, and 
 | **Dark Theme** | Antique-gold accent on a charcoal slate palette — easy on the eyes for long reading sessions |
 | **Opens Maximized** | Detects your screen size on launch and opens windowed full-screen, so you're never stuck with a cramped default window |
 | **System Tray** | Closing the window hides the app to the tray — the API server keeps running in the background |
-| **Browser Extension** | Auto-updates your chapter progress as you read on Novelfire, NovelPhoenix, Wuxiaworld, FreeWebNovel and Flame Comics (novels and manga), even with the window hidden |
+| **Browser Extension** | Auto-updates your chapter progress as you read on Novelfire, NovelPhoenix, Wuxiaworld, FreeWebNovel, Flame Comics (novels and manga) and MangaFire, even with the window hidden |
 | **Single-File Portable** | Distributes as one standalone `.exe` — no installation required |
 
 ---
@@ -60,15 +60,17 @@ Supports **Novelfire**, **NovelPhoenix**, **Wuxiaworld**, **FreeWebNovel**, and 
 | [FreeWebNovel](https://freewebnovel.com) | Novels | ✅ | ✅ | ✅ |
 | [Flame Comics](https://flamecomics.xyz) | Novels | ✅ | ✅ | ✅ |
 | [Flame Comics](https://flamecomics.xyz) | Manga / manhwa | ✅ | ✅ | ✅ |
+| [MangaFire](https://mangafire.to) | Manga / manhwa / manhua | ✅ | ✅ | ❌ latest chapter only |
 
-- **Extension tracking:** the browser extension records the chapter you're reading. On Flame Comics it reads the chapter number from the page title and also catches chapter changes made with Flame's Previous/Next buttons, which don't reload the page.
+- **Extension tracking:** the browser extension records the chapter you're reading. On Flame Comics it reads the chapter number from the page title and also catches chapter changes made with Flame's Previous/Next buttons, which don't reload the page. On MangaFire the reader URL (`/title/{id}-{slug}/chapter/{internal id}`) identifies the series but its last part is an internal id, not the chapter number, so the extension reads the number from the page (tab title, headings, the selected chapter); a chapter read in any language counts toward the same series.
 - **Auto-refresh:** every title from these sites is re-checked when the app starts (titles the site marks Completed are skipped).
-- **Full chapter list:** the app knows every chapter the site has, so **+1** follows the real list (2 → 2.5 → 3, gaps skipped), progress counts real chapters, and locked (paid) chapters are counted separately. How it's known:
+- **Full chapter list:** (every site except MangaFire, see below) the app knows every chapter the site has, so **+1** follows the real list (2 → 2.5 → 3, gaps skipped), progress counts real chapters, and locked (paid) chapters are counted separately. How it's known:
   - **Flame Comics** and **Wuxiaworld** send their chapter data with the novel page.
   - **Novelfire, NovelPhoenix** and **FreeWebNovel** number chapter links 1, 2, 3 … with no gaps, so the site's chapter count is the whole list (no need to download dozens of list pages).
   - **Wuxiaworld exception:** when a novel's books don't add up exactly (a book holding one more chapter than its number range, or old "book.chapter" numbering like Coiling Dragon's 21.044), that novel uses the next whole chapter instead. Paid advance chapters are still counted as locked.
 - **Sites that block plain requests** (for example with a Cloudflare "Just a moment..." check) are loaded in a real browser automatically: Microsoft Edge, which every Windows 10/11 PC has, or Google Chrome.
-- **Manga** are tracked for progress only (chapter pages aren't downloaded). A novel and its manhwa adaptation, such as ORV on Flame, are separate entries and never update each other.
+- **MangaFire** identifies a series by a short id that never changes (`/title/{id}-{slug}`; older `/manga/...` and `/read/...` links redirect to it), so a saved series keeps matching even if the slug changes. It lists chapters per language; the app reads the English list (or the language in the link you saved) and records the newest chapter. It loads the page in a real browser (Microsoft Edge or Google Chrome must be installed), so fetching can take about 20 seconds. It doesn't keep the full list yet, so progress uses whole chapters up to the latest, and the site's Completed/Releasing status isn't read.
+- **Manga** are tracked for progress only (chapter pages aren't downloaded). This applies to Flame Comics and MangaFire. A novel and its manhwa adaptation, such as ORV on Flame, are separate entries and never update each other.
 
 ---
 
@@ -81,7 +83,7 @@ The **Library of Yore Browser Extension** detects which chapter you are reading 
 ### How It Works
 
 1. Library of Yore runs a small local API server on `localhost:7337`
-2. The extension watches the current tab and detects the chapter number, from the URL or, on Flame Comics, from the page title. It also notices chapter changes that happen without a page reload (Flame's Previous/Next buttons)
+2. The extension watches the current tab and detects the chapter number, from the URL or, on Flame Comics, from the page title (on MangaFire, from the chapter shown on the page, because its reader URL carries only an internal chapter id). It also notices chapter changes that happen without a page reload (Flame's Previous/Next buttons)
 3. When you advance to a new chapter it sends the update to the app (with **Auto-sync** turned on in the popup's settings, and only for novels matched by their URL; otherwise press **Sync**)
 4. The app writes it to your local library file and refreshes the card — even if the main window is hidden
 
@@ -138,7 +140,7 @@ Download `LibraryOfYore_Setup.exe` and run it to install to Program Files with a
 
 ### 2. First Launch
 
-The main window opens immediately — there's nothing to install or configure first. Novelfire, NovelPhoenix and Flame Comics titles begin auto-refreshing in the background.
+The main window opens immediately — there's nothing to install or configure first. Titles from every supported site begin auto-refreshing in the background.
 
 > **Upgrading to 2.1.0?** Your library is converted automatically on first launch (chapter 0 becomes "Not started"). Older versions can't open it afterwards; the dated copies in `backups\` are your way back.
 
@@ -157,7 +159,7 @@ See the [User Manual](USER_MANUAL.md) for detailed instructions.
 ```bash
 # Clone the repository
 git clone https://github.com/NurAbir/Library-of-Yore
-cd libraryofyore
+cd Library-of-Yore
 
 # Create virtual environment
 python -m venv venv
@@ -166,7 +168,8 @@ venv\Scripts\activate
 # Install dependencies
 pip install -r requirements.txt
 
-# Install Playwright browsers (needed for Novelfire fallback)
+# Optional: Playwright's own Chromium. The browser fallback (Novelfire, NovelPhoenix, MangaFire)
+# uses Microsoft Edge or Google Chrome first, so this only matters if neither is installed
 playwright install chromium
 
 # Run the app
@@ -208,9 +211,9 @@ build.bat
 ## Project Structure
 
 ```
-libraryofyore/
+Library-of-Yore/
 ├── main.py                 # Entry point — also writes crash_log.txt on startup failure
-├── api_server.py           # Local HTTP server (localhost:7337) for the browser extension
+├── api_server.py           # Local HTTP server (localhost:7337) for the browser extension; matches a browser URL to a saved title
 ├── config.py               # App configuration, paths, asset loader
 ├── requirements.txt        # Python dependencies
 ├── build.py                # PyInstaller build script (--folder / default onefile)
@@ -242,12 +245,13 @@ libraryofyore/
 │
 ├── scrapers/
 │   ├── __init__.py         # Scraper factory (get_scraper_for_url)
-│   ├── base.py             # BaseScraper + ScraperResult dataclass
+│   ├── base.py             # BaseScraper + ScraperResult; fetch_html/fetch_json (plain request, then a real browser; optional `ready` check for JavaScript-filled pages)
 │   ├── novelfire.py        # Novelfire.net scraper (requests + Playwright fallback)
 │   ├── novelphoenix.py     # NovelPhoenix.com scraper (requests + Playwright fallback)
 │   ├── wuxiaworld.py       # Wuxiaworld.com scraper
 │   ├── freewebnovel.py     # FreeWebNovel.com scraper
-│   └── flamecomics.py      # Flame Comics scraper (novels + manga, reads the page's embedded chapter data)
+│   ├── flamecomics.py      # Flame Comics scraper (novels + manga, reads the page's embedded chapter data)
+│   └── mangafire.py        # MangaFire scraper (manga; identifies a series by its stable id, reads the rendered chapter links)
 │
 ├── ui/
 │   ├── setup_wizard.py     # Import Wizard — only shown if a pre-2.0 MongoDB library is found
@@ -261,6 +265,7 @@ libraryofyore/
 │
 ├── tests/                  # pytest suite: python -m pytest tests
 └── tools/
+    ├── capture_mangafire.py # Saves a real MangaFire page as a test fixture and shows what the scraper extracts
     └── check_version.py    # Fails if the version differs between config.py, manifest, installer, docs
 ```
 
@@ -299,6 +304,8 @@ All data is stored **locally** — nothing leaves your machine, and no database 
 | Extension shows "Disconnected" | Make sure Library of Yore is running (check the system tray) |
 | Card not updating from extension | Confirm the novel's Source URL matches the site you are reading on, and that Auto-sync is on in the extension's settings |
 | Flame Comics chapter not detected | Save the title with its main page URL (`/novel/N` for the novel, `/series/N` for the manga), and reload the extension after updating it. The novel and the manga are separate entries |
+| MangaFire chapter not detected | Reload the extension after updating it (`chrome://extensions` → reload), then refresh the page. If the popup says *This page wasn't recognised as a chapter* it shows the page's path and what the page offered as a chapter label (title, headings, selected chapter): send that text in an issue, since the number is read from the page and MangaFire's layout can change. The saved title's Source URL should be its series page (`https://mangafire.to/title/{id}-{slug}`) |
+| MangaFire title shows no latest chapter, or no cover/author/genres | Needs Microsoft Edge or Google Chrome installed. Open Edit and click **Fetch Metadata** (it can take ~20 s). The app saves the page it received to `%LOCALAPPDATA%\LibraryOfYore\logs\mangafire_last_page.html`; attach that file to an issue and the parser can be fixed against the real page. The extension tracks your progress either way |
 | Card shows chapters "behind" that I can't read for free | Locked (paid) chapters on Flame still count as behind; hover the card to see how many are locked |
 | Synopsis shows "Summary..." prefix | Update to v1.3.0 — the leading label is now stripped automatically |
 | `AttributeError: module 'numpy' has no attribute 'short'` on startup | Update to v1.4.0 — the build now excludes numpy/pandas/matplotlib, which openpyxl only used optionally and which PyInstaller was bundling incompletely |

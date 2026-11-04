@@ -148,6 +148,10 @@ class Novel:
 # marked Dropped flipped back to Ongoing on the next launch).
 READER_ONLY_STATUSES = ("dropped", "planned")
 
+# Scrapers that know whether a title is a novel or a manga, so a refresh may
+# correct the entry's type. Other sources host one kind only and leave it alone.
+TYPE_AWARE_SOURCES = ("flamecomics", "mangafire")
+
 
 def apply_site_status(novel: Novel, site_status: str) -> bool:
     """Record the source site's publication status on a novel. The novel's
@@ -168,7 +172,7 @@ def apply_site_status(novel: Novel, site_status: str) -> bool:
 def apply_scrape_result(novel: Novel, result) -> bool:
     """Copy fresh site data from a successful ScraperResult onto a novel:
     latest chapter, chapter/locked lists, site status, synopsis and (for
-    Flame Comics, which knows it) novel vs manga. Never touches your current
+    Flame Comics and MangaFire, which know it) novel vs manga. Never touches your current
     chapter, last_read or a Dropped/Planned status. Returns True if anything
     you'd see changed."""
     changed = False
@@ -190,7 +194,7 @@ def apply_scrape_result(novel: Novel, result) -> bool:
     if result.synopsis and result.synopsis != novel.synopsis:
         novel.synopsis = result.synopsis
         changed = True
-    if result.source_name == "flamecomics" and result.content_type in CONTENT_TYPES \
+    if result.source_name in TYPE_AWARE_SOURCES and result.content_type in CONTENT_TYPES \
             and result.content_type != novel.content_type:
         novel.content_type = result.content_type
         changed = True

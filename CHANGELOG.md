@@ -2,6 +2,32 @@
 
 All notable changes to Library of Yore.
 
+## [2.3.0] - 2026-11-04
+
+MangaFire (mangafire.to) joins the supported sites, for manga, manhwa and manhua. Tested by the maintainer on real MangaFire pages.
+
+### Added
+- **MangaFire in the scraper pool.** Paste a series link, `https://mangafire.to/title/{id}-{slug}`. Older `/manga/{slug}.{id}` and `/read/...` links work too, because the site redirects them to the series page.
+- **Series are identified by their short id** (for example `zkw8p`), which stays the same when the slug changes (the site redirected `/read/lag.zl363/...` to `/title/zl363-lagg`). The app, the scraper and the browser extension all match on the id, so a saved series keeps matching whichever URL format or language you read it in.
+- **Browser extension tracking for MangaFire.** MangaFire's reader URL is `/title/{id}-{slug}/chapter/{internal chapter id}`, and that last part (for example `8205410`) is an internal id, not the chapter number. The extension identifies the series from the URL and reads the chapter number from the page (tab title, `og:title`, headings, then the selected item). Right after you move to another chapter, while the page may still show the previous one, the old value is skipped for a few seconds instead of being reported. Older reader URLs ending in `chapter-{N}` still work. If no chapter number is found, the popup shows the page's path and what the page offered, to tell an outdated extension apart from an unfamiliar page.
+- **Scraper details.** Title, author, genres, synopsis, cover and the latest chapter, read from links, structured data and the page's visible text, so nothing depends on one markup shape. The latest chapter is found by four fallbacks: chapter-shaped links, links to the series whose text reads "Chapter N", the page's "Chapter N: ..." lines, and the site's own "latest chapter N" sentence. A site-wide genre list in a menu is never taken as the series' genres, and a bare number in a URL is never taken as a chapter. Whatever can't be found is left empty rather than guessed.
+- **Loaded in a real browser.** MangaFire fills its chapter list in with JavaScript from an API that other open-source tools report is gated by a per-session token, so a plain request only gets the page shell. `fetch_html` takes an optional `ready` check: a plain response that isn't ready is retried in the browser (Microsoft Edge or Google Chrome, then Playwright's Chromium), which waits for it; a page that loads but never becomes ready is still used. Without `ready`, every other site behaves as before.
+- **Easier troubleshooting.** After a fetch the add dialog lists what wasn't found (including a cover that was found but couldn't be downloaded) and where the page the app received was saved: `mangafire_last_page.html` in the app's `logs` folder (`%LOCALAPPDATA%\LibraryOfYore\logs`). `tools/capture_mangafire.py` does the same from the command line, saves a test fixture and prints what the scraper extracted.
+- Cover images that the image host refuses are retried once with the series page as the Referer, the way a browser requests them.
+- Tests: `tests/test_mangafire.py`, `tests/test_fetch_ready.py`, `tests/test_cover_download.py`, `tests/test_mangafire_dialog.py`, and `tests/test_extension_detector.py`, which runs the extension's detector under Node with scripted pages (skipped when Node isn't installed). One test checks that every site the extension detects is also registered in its manifest, background script and popup.
+
+### Changed
+- A refresh may now correct an entry's Novel/Manga type for MangaFire as well as Flame Comics (`TYPE_AWARE_SOURCES` in `database/models.py`); the add/edit dialog reads the same list, so the two can't drift apart.
+- MangaFire pages that haven't rendered carry the same generic title ("MangaFire - Read Manga Online Free") on every route; the scraper and the extension reject it instead of saving it as a series title.
+- Docs: the User Manual's auto-refresh section and FAQ list all six sites (they named only three); the README and manual no longer describe the browser fallback as Novelfire-only, explain that after updating you must also reload the browser extension, and note that MangaFire is the one site without a stored full chapter list; the README's setup steps and project tree use the real repo folder name `Library-of-Yore`; CONTRIBUTING's "Adding a New Scraper" steps cover manga sites, JavaScript-filled pages and sites whose chapter URLs carry only an internal id.
+
+### Known limitations
+- Only the newest MangaFire chapter is stored, not the full chapter list, so **+1** moves to the next whole chapter. MangaFire reportedly redesigned its site in mid-2026, and an older open-source downloader reports its chapter list was split into pages of 20, so one rendered page may not hold every chapter; a partial list would skew progress.
+- MangaFire's Completed/Releasing status is not read: its filter menu uses the same words, and a wrong match would overwrite your own status. Set the status yourself.
+- A MangaFire fetch needs Microsoft Edge or Google Chrome installed and can take around 20 seconds. If the site shows an automated-browser verification page the fetch fails with a message; the extension still tracks your progress.
+- A series page that shows only one chapter is treated as "latest chapter unknown".
+- MangaFire changes its layout from time to time. If a field comes back empty or the extension stops recognising chapters, the saved `mangafire_last_page.html` and the popup's hint show exactly what the app received.
+
 ## [2.2.0] - 2026-09-30
 
 Every supported site now has browser-extension tracking, startup auto-refresh and a full chapter list. NovelUpdates support is removed.

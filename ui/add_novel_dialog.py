@@ -12,7 +12,7 @@ from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtGui import QPixmap, QRegularExpressionValidator
 from PyQt6.QtCore import QRegularExpression
 
-from database.models import Novel, NovelRepository, CONTENT_TYPES
+from database.models import Novel, NovelRepository, CONTENT_TYPES, TYPE_AWARE_SOURCES
 from utils import chapters as ch
 from scrapers import get_scraper_for_url
 from utils.helpers import download_image, bytes_to_pixmap
@@ -44,7 +44,7 @@ class ScrapeWorker(QThread):
         cover_bytes = None
         if result.success and result.cover_url:
             try:
-                cover_bytes = download_image(result.cover_url)
+                cover_bytes = download_image(result.cover_url, fallback_referer=self.url)
             except Exception:
                 cover_bytes = None  # metadata still fills in; cover can be retried
         self.finished.emit(result, cover_bytes)
@@ -71,7 +71,7 @@ class CoverWorker(QThread):
                     self.error.emit("No cover image found on that page.")
                     return
                 image_url = result.cover_url
-            self.finished.emit(download_image(image_url), image_url)
+            self.finished.emit(download_image(image_url, fallback_referer=self.url), image_url)
         except Exception as e:
             self.error.emit(str(e))
 
@@ -428,7 +428,7 @@ class AddNovelDialog(QDialog):
             self.chapter_list = ch.encode_ranges(result.chapter_list)
             self.locked_list = ch.encode_ranges(result.locked_list)
             self._update_chapter_list_label()
-        if result.source_name == "flamecomics":
+        if result.source_name in TYPE_AWARE_SOURCES:
             idx = self.type_combo.findText(result.content_type.title())
             if idx >= 0:
                 self.type_combo.setCurrentIndex(idx)
@@ -458,8 +458,36 @@ class AddNovelDialog(QDialog):
         if result.latest_chapter:
             parts.append("latest ch " + result.latest_chapter)
         status_text = "✓  " + "  •  ".join(parts) if parts else "✓  Metadata fetched"
+        status_text += self._missing_details_note(result, cover_bytes)
         self.fetch_status_label.setText(status_text)
+        self.fetch_status_label.setWordWrap(True)
+        self.fetch_status_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         self.fetch_status_label.setVisible(True)
+
+    @staticmethod
+    def _missing_details_note(result, cover_bytes) -> str:
+        """For a scraper that keeps a copy of the page it read (MangaFire): say what it
+        didn't find and where that copy is, so a bad parse can be reported precisely."""
+        raw = result.raw_data or {}
+        if "saved_page" not in raw:
+            return ""
+        missing = []
+        if not result.author:
+            missing.append("author")
+        if not result.genres:
+            missing.append("genres")
+        if not result.cover_url:
+            missing.append("cover")
+        elif not cover_bytes:
+            missing.append("cover (found, but the image couldn't be downloaded)")
+        if not result.latest_chapter:
+            missing.append("latest chapter")
+        if not missing:
+            return ""
+        note = "\nNot found: " + ", ".join(missing) + "."
+        if raw.get("saved_page"):
+            note += "\nThe page the app received was saved to: " + str(raw["saved_page"])
+        return note
 
     def _on_scrape_error(self, msg: str):
         self.fetch_btn.setEnabled(True)

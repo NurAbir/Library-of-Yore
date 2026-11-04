@@ -1,7 +1,7 @@
 """Base scraper interface and shared utilities."""
 import re
 from dataclasses import dataclass, field
-from typing import Optional, List
+from typing import Callable, Optional, List
 from datetime import datetime
 
 from utils import chapters
@@ -147,9 +147,16 @@ def _request_headers(referer: Optional[str] = None) -> dict:
     return headers
 
 
-def fetch_html(url: str, must_contain: Optional[str] = None, use_browser_fallback: bool = True) -> str:
+def fetch_html(url: str, must_contain: Optional[str] = None, use_browser_fallback: bool = True,
+               ready: Optional[Callable[[str], bool]] = None) -> str:
     """Return a page's HTML. `must_contain` is a marker the real page always
-    has (e.g. "__NEXT_DATA__"); a response without it counts as blocked."""
+    has (e.g. "__NEXT_DATA__"); a response without it counts as blocked.
+
+    `ready` is for pages whose content is filled in by JavaScript: a function that
+    says whether this HTML already holds what the caller needs. A plain request
+    that isn't ready is retried in the browser, which waits for it; if the browser
+    loads the page but it never becomes ready, what rendered is returned anyway.
+    """
     import requests
     from config import REQUEST_TIMEOUT
 
@@ -157,14 +164,19 @@ def fetch_html(url: str, must_contain: Optional[str] = None, use_browser_fallbac
         resp = requests.get(url, headers=_request_headers(), timeout=REQUEST_TIMEOUT)
         if resp.status_code < 400 and not looks_blocked(resp.text) \
                 and (must_contain is None or must_contain in resp.text):
-            return resp.text
-        problem = f"HTTP {resp.status_code}" if resp.status_code >= 400 else "bot check / unexpected page"
+            if ready is None or ready(resp.text):
+                return resp.text
+            problem = "the page's content is filled in by JavaScript"
+        else:
+            problem = f"HTTP {resp.status_code}" if resp.status_code >= 400 else "bot check / unexpected page"
     except Exception as e:  # network error, timeout, TLS, ...
         problem = str(e)
 
     if not use_browser_fallback:
         raise FetchError(f"Couldn't load {url}: {problem}")
-    return _browser_fetch(url, must_contain)
+    if ready is None:
+        return _browser_fetch(url, must_contain)
+    return _browser_fetch(url, must_contain, ready=ready)
 
 
 def _launch_browser(p):
@@ -184,7 +196,8 @@ def _launch_browser(p):
     )
 
 
-def _browser_fetch(url: str, must_contain: Optional[str] = None, json_url: Optional[str] = None):
+def _browser_fetch(url: str, must_contain: Optional[str] = None, json_url: Optional[str] = None,
+                   ready: Optional[Callable[[str], bool]] = None):
     """Load `url` in headless Chromium. Returns the page HTML, or, when
     `json_url` is given, the text of fetching json_url from inside that page
     (so it carries the same cookies the page earned)."""
@@ -203,11 +216,17 @@ def _browser_fetch(url: str, must_contain: Optional[str] = None, json_url: Optio
                 # Give a bot check up to ~15 s to clear itself
                 for _ in range(15):
                     html = page.content()
-                    if not looks_blocked(html) and (must_contain is None or must_contain in html):
+                    loaded = not looks_blocked(html) and (must_contain is None or must_contain in html)
+                    if loaded and (ready is None or ready(html)):
                         break
                     page.wait_for_timeout(1000)
                 else:
-                    raise FetchError(f"{url} kept showing a bot check in the browser too")
+                    # Never became `ready` but did load (e.g. a series with a single chapter):
+                    # use what rendered. A page that never got past the bot check is an error.
+                    html = page.content()
+                    if ready is None or looks_blocked(html) \
+                            or not (must_contain is None or must_contain in html):
+                        raise FetchError(f"{url} kept showing a bot check in the browser too")
                 if json_url:
                     return page.evaluate(
                         "async (u) => { const r = await fetch(u, {credentials: 'include'}); return await r.text(); }",

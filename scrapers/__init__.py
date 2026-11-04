@@ -5,6 +5,7 @@ from .novelphoenix import NovelPhoenixScraper
 from .wuxiaworld import WuxiaworldScraper
 from .freewebnovel import FreeWebNovelScraper
 from .flamecomics import FlameComicsScraper
+from .mangafire import MangaFireScraper
 
 def get_scraper_for_url(url: str):
     """Factory: return appropriate scraper for a URL."""
@@ -19,8 +20,10 @@ def get_scraper_for_url(url: str):
         return FreeWebNovelScraper()
     elif "flamecomics.xyz" in domain:
         return FlameComicsScraper()
+    elif "mangafire.to" in domain:
+        return MangaFireScraper()
     return None
 
 __all__ = ["ScraperResult", "BaseScraper", "NovelfireScraper", "NovelPhoenixScraper",
            "WuxiaworldScraper", "FreeWebNovelScraper", "FlameComicsScraper",
-           "get_scraper_for_url"]
+           "MangaFireScraper", "get_scraper_for_url"]

@@ -8,12 +8,27 @@ from PyQt6.QtCore import Qt
 from config import USER_AGENT, REQUEST_TIMEOUT
 
 
-def download_image(url: str, max_size: int = 800) -> bytes:
-    """Download image from URL and resize if needed. Returns JPEG bytes."""
-    headers = {"User-Agent": USER_AGENT, "Referer": url}
-    resp = requests.get(url, headers=headers, timeout=REQUEST_TIMEOUT)
-    resp.raise_for_status()
-    img = Image.open(io.BytesIO(resp.content))
+def download_image(url: str, max_size: int = 800, fallback_referer: str = "") -> bytes:
+    """Download image from URL and resize if needed. Returns JPEG bytes.
+
+    The request first sends the image's own URL as the Referer (what has always
+    worked). Some image hosts only serve pictures requested from their own site;
+    if that attempt fails and `fallback_referer` (the novel's page URL) is given,
+    it is retried the way a browser would, with the page as the Referer.
+    """
+    def fetch(referer: str) -> bytes:
+        resp = requests.get(url, headers={"User-Agent": USER_AGENT, "Referer": referer},
+                            timeout=REQUEST_TIMEOUT)
+        resp.raise_for_status()
+        return resp.content
+
+    try:
+        content = fetch(url)
+    except requests.RequestException:
+        if not fallback_referer:
+            raise
+        content = fetch(fallback_referer)
+    img = Image.open(io.BytesIO(content))
     img = img.convert("RGB")
     if max(img.size) > max_size:
         img.thumbnail((max_size, max_size), Image.LANCZOS)

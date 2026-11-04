@@ -545,7 +545,7 @@ class MainWindow(QMainWindow):
         from scrapers import get_scraper_for_url
         all_novels = self.repo.get_all()
         # Every novel saved from a supported site (since v2.2.0 that's all of
-        # them: Novelfire, NovelPhoenix, Wuxiaworld, FreeWebNovel, Flame).
+        # them: Novelfire, NovelPhoenix, Wuxiaworld, FreeWebNovel, Flame, MangaFire).
         novelfire_novels = [
             n for n in all_novels
             if n.source_url and get_scraper_for_url(n.source_url) is not None
@@ -639,7 +639,7 @@ class MainWindow(QMainWindow):
             f"<h2>Library of Yore v{APP_VERSION}</h2>"
             "<p>A desktop bookmark tracker for web novels.</p>"
             "<p>Supports: Novelfire, NovelPhoenix, Wuxiaworld, FreeWebNovel, "
-            "Flame Comics (novels and manga)</p>"
+            "Flame Comics (novels and manga), MangaFire (manga)</p>"
             "<p>Built with Python and PyQt6. Stored locally — no database server required.</p>"
             f"<p><b>Browser Extension API:</b> localhost:{api_server.PORT}</p>"
         )

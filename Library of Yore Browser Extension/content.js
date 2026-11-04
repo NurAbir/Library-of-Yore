@@ -141,6 +141,80 @@ const DETECTORS = {
       sourceUrl: `${location.origin}/${kind}/${id}`,
     };
   },
+
+  /** mangafire.to (manga, manhwa, manhua, one-shots)
+   *  A series has a stable short id plus a slug that can change:
+   *    current  /title/{id}-{slug}          older  /manga/{slug}.{id}, /read/{slug}.{id}/{lang}/chapter-{N}
+   *  The older forms redirect to the current one. Older reader URLs end in "chapter-{N}".
+   *  The current reader URL is /title/{id}-{slug}/chapter/{internal chapter id}: that
+   *  internal id is NOT the chapter number, which is read from the page (tab title,
+   *  headings, the selected chapter). The language, if any, is ignored: chapters are
+   *  matched against the series. The app matches the saved series by its id. Volumes
+   *  aren't tracked.
+   */
+  "mangafire.to": () => {
+    const segs = location.pathname.split("/").filter(Boolean);
+    if (segs.length < 3 || !["title", "manga", "read"].includes(segs[0].toLowerCase())) return null;
+
+    const series = segs[1].toLowerCase();
+    const older = /^(.+)\.([a-z0-9]{2,8})$/.exec(series);                 // slug.id
+    const current = !older && /^([a-z0-9]{2,8})-(.+)$/.exec(series);      // id-slug
+    const bare = !older && !current && /^(?=[a-z]*\d)[a-z0-9]{2,8}$/.test(series);   // id alone (has a digit)
+    if (!older && !current && !bare) return null;
+    const slug = older ? older[1] : current ? current[2] : "";
+
+    let chapter = null;
+    let ambiguous = false;
+    const rest = segs.slice(2);
+    for (const seg of rest) {
+      // older reader URLs: chapter-7, chapter-7.2, chapter-7-2, chapter7, ch-7
+      const c = /^(?:chapter|chap|ch)[-_.]?(\d+)(?:([.-])(\d+))?$/i.exec(seg);
+      if (c) {
+        // "7.2" is plainly 7.2; "7-2" could be 7.2 or part 2 of chapter 7
+        chapter = c[3] ? `${c[1]}.${c[3]}` : c[1];
+        ambiguous = c[2] === "-";
+        break;
+      }
+    }
+
+    // Current reader URLs: /title/{id}-{slug}/chapter/{internal chapter id}. That id is NOT the
+    // chapter number (e.g. 8205410), so the number has to come from the page itself.
+    const at = rest.findIndex((s) => s.toLowerCase() === "chapter");
+    if (chapter === null && at >= 0 && /^\d+$/.test(rest[at + 1] || "")) {
+      const href = location.href;
+      if (_mfNav.href !== href) _mfNav = { href, prev: _mfLast.chapter, since: Date.now() };
+      const found = _chapterCandidates();
+      // Just after in-page navigation the page can still show the previous chapter: skip
+      // that value for a few seconds rather than report the wrong chapter.
+      const fresh = Date.now() - _mfNav.since < 4000 && _mfNav.prev !== null
+        ? found.find((n) => n !== _mfNav.prev)
+        : found[0];
+      if (fresh === undefined) {
+        _debug = `chapter page (id ${rest[at + 1]}) but no chapter number: ${_pageHints()}`;
+        return null;
+      }
+      chapter = fresh;
+    }
+    if (chapter === null) return null;     // the series page itself, a volume, ...
+    _debug = "";
+    _mfLast = { chapter };
+
+    // The un-rendered page carries the site's generic title; never use that as the novel's
+    const usable = (t) => (t && !/mangafire|read manga|manga online|free online/i.test(t) ? t : "");
+    const novelTitle =
+      usable(document.title.match(/^(.*?)\s+Manga,?\s+Chapter\s+\d/i)?.[1]?.trim()) ||
+      usable(_ogTitle()?.replace(/^Read\s+/i, "").replace(/\s+Manga\b.*$/i, "").trim()) ||
+      (slug || series).replace(/-/g, " ");
+
+    return {
+      novelTitle,
+      chapter,
+      ambiguous,
+      slug: series,
+      contentType: "manga",
+      sourceUrl: `${location.origin}/${older ? "manga" : "title"}/${series}`,
+    };
+  },
 };
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -148,6 +222,46 @@ const DETECTORS = {
 function _ogTitle() {
   return document.querySelector("meta[property='og:title']")?.content || "";
 }
+
+// ── Chapter number read from the page (for sites whose chapter URLs carry only an internal id) ──
+
+// "Chapter 123", "Chap 12.5", "Ch. 7": the keyword must start a word, so "Search 12" never matches
+const _CHAPTER_LABEL = /\b(?:chapter|chap|ch)\b\.?\s*#?\s*(\d+(?:\.\d+)?)/i;
+
+function _texts(selector) {
+  return [...document.querySelectorAll(selector)].map((e) => (e.textContent || "").replace(/\s+/g, " ").trim());
+}
+
+/** Chapter numbers the page states, most trustworthy source first, without repeats:
+ *  the tab title, og:title, headings, then whatever is marked as the current/selected item. */
+function _chapterCandidates() {
+  const sources = [
+    [document.title],
+    [_ogTitle()],
+    _texts("h1, h2, h3"),
+    _texts('[aria-current], [aria-selected="true"], option:checked, .active, .current, .selected'),
+  ];
+  const found = [];
+  for (const texts of sources) {
+    for (const t of texts) {
+      const m = _CHAPTER_LABEL.exec(t || "");
+      if (m && !found.includes(m[1])) found.push(m[1]);
+    }
+  }
+  return found;
+}
+
+/** What the page offered, for the popup to show when no chapter number could be read. */
+function _pageHints() {
+  const cut = (s) => (s.length > 70 ? s.slice(0, 70) + "…" : s);
+  const list = (sel) => _texts(sel).filter(Boolean).slice(0, 3).map(cut).join(" | ");
+  return `title="${cut(document.title || "")}"; og="${cut(_ogTitle())}"; ` +
+         `headings="${list("h1, h2, h3")}"; current="${list('[aria-current], [aria-selected="true"], option:checked, .active, .current, .selected')}"`;
+}
+
+let _debug = "";           // set by a detector that found a chapter page but no number
+let _mfLast = { chapter: null };
+let _mfNav = { href: "", prev: null, since: 0 };
 
 function _hostname() {
   return location.hostname.replace(/^www\./, "");
@@ -210,9 +324,13 @@ setInterval(() => {
   }
 }, 1000);
 
+// MangaFire's chapter number may only change in the page body (not the tab title), which the
+// observer above doesn't watch, so look again periodically; report() ignores repeats.
+if (_hostname() === "mangafire.to") setInterval(scheduleReport, 1500);
+
 // Also listen for popup asking for a re-check
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg.type === "PING_CONTENT") {
-    sendResponse({ info: detect(), url: location.href });
+    sendResponse({ info: detect(), url: location.href, debug: _debug });
   }
 });
