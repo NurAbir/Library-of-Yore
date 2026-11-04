@@ -3,6 +3,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Callable, Optional, List
 from datetime import datetime
+from urllib.parse import urlparse
 
 from utils import chapters
 
@@ -67,9 +68,26 @@ class BaseScraper:
     DOMAIN_PATTERNS = []
 
     def can_handle(self, url: str) -> bool:
-        """Check if this scraper supports the given URL."""
-        url_lower = url.lower()
-        return any(pat in url_lower for pat in self.DOMAIN_PATTERNS)
+        """Check if this scraper supports the given URL.
+
+        Matches the URL's hostname, never the whole URL string: before v2.3.1
+        a URL such as https://novelfire.net.evil.example/... was treated as
+        Novelfire because the domain appeared somewhere in the text.
+        """
+        try:
+            host = (urlparse(url).hostname or "").lower().rstrip(".")
+        except ValueError:
+            return False
+        if not host:
+            return False
+        return any(host == pat or host.endswith("." + pat)
+                   for pat in (p.lower() for p in self.DOMAIN_PATTERNS))
+
+    def canonical_page_url(self, url: str) -> str:
+        """The site's page URL for any novel/chapter link, so a chapter link
+        saved as an entry's Source URL can't stop future URL matching.
+        Scrapers override this; the default keeps the URL as typed."""
+        return (url or "").strip()
 
     def scrape(self, url: str) -> ScraperResult:
         """Main entry point. Override in subclasses."""
@@ -97,9 +115,14 @@ class BaseScraper:
             return chapters.parse_chapter(m.group(1).replace(",", ""))
         return None
     def _normalize_status(self, text: str) -> str:
-        """Map various status strings to canonical values."""
+        """Map various status strings to canonical values.
+
+        Returns "" when the page says nothing or something unrecognised: an
+        empty site status is left alone by apply_site_status, whereas a guess
+        of "ongoing" could flip a novel the user marked Hiatus (fixed 2.3.1).
+        """
         if not text:
-            return "ongoing"
+            return ""
         t = text.lower()
         if any(w in t for w in ["complete", "finished", "ended"]):
             return "completed"
@@ -107,7 +130,9 @@ class BaseScraper:
             return "hiatus"
         if any(w in t for w in ["drop", "cancel"]):
             return "dropped"
-        return "ongoing"
+        if any(w in t for w in ["ongoing", "releasing", "active", "upcoming"]):
+            return "ongoing"
+        return ""
 
 
 # ── Fetching, with a real-browser fallback ───────────────────────────────────

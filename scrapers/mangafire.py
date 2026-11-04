@@ -233,7 +233,7 @@ def chapters_rendered(sid: str):
     list of this series (see _chapter_sets), not just the page shell's single
     "read first chapter" button."""
     def ready(html: str) -> bool:
-        if not html or "hap" not in html:
+        if not html or "<" not in html:
             return False
         return _has_list(_chapter_sets(BeautifulSoup(html, "html.parser"), sid)[0])
     return ready
@@ -496,6 +496,10 @@ class MangaFireScraper(BaseScraper):
 
     SOURCE_NAME = "mangafire"
     DOMAIN_PATTERNS = ["mangafire.to"]
+
+    def canonical_page_url(self, url: str) -> str:
+        parsed = canonical_url(url)
+        return parsed[2] if parsed else (url or "").strip()
 
     def scrape(self, url: str) -> ScraperResult:
         result = ScraperResult(source_name=self.SOURCE_NAME, content_type="manga")

@@ -46,6 +46,48 @@ def _str_to_dt(s) -> Optional[datetime.datetime]:
         return None
 
 
+def _sniff_image_ext(data: bytes) -> str:
+    """File extension from an image's signature, used only when Pillow can't
+    decode the bytes and they must be stored unchanged."""
+    if data.startswith(b"\x89PNG\r\n\x1a\n"):
+        return ".png"
+    if data[:6] in (b"GIF87a", b"GIF89a"):
+        return ".gif"
+    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return ".webp"
+    if data[:2] == b"BM":
+        return ".bmp"
+    return ".jpg"
+
+
+def _normalize_cover(image_bytes: bytes):
+    """Return (bytes, extension) for a cover.
+
+    Normal images become JPEG (with transparent areas flattened onto white),
+    so cover files are always what their name says. If Pillow can't open the
+    data, the original bytes keep their detected extension instead.
+    """
+    try:
+        import io
+        from PIL import Image
+
+        with Image.open(io.BytesIO(image_bytes)) as image:
+            image.load()
+            if image.mode in ("RGBA", "LA") or (
+                    image.mode == "P" and "transparency" in image.info):
+                rgba = image.convert("RGBA")
+                flattened = Image.new("RGB", rgba.size, (255, 255, 255))
+                flattened.paste(rgba, mask=rgba.split()[-1])
+                image = flattened
+            else:
+                image = image.convert("RGB")
+            output = io.BytesIO()
+            image.save(output, format="JPEG", quality=90)
+        return output.getvalue(), ".jpg"
+    except Exception:
+        return image_bytes, _sniff_image_ext(image_bytes)
+
+
 @dataclass
 class Novel:
     """Domain model for a tracked novel."""
@@ -156,13 +198,20 @@ TYPE_AWARE_SOURCES = ("flamecomics", "mangafire")
 def apply_site_status(novel: Novel, site_status: str) -> bool:
     """Record the source site's publication status on a novel. The novel's
     own status follows it (e.g. Ongoing -> Completed) unless you marked the
-    novel Dropped or Planned. Returns True if anything changed."""
+    novel Dropped or Planned. Returns True if anything changed.
+
+    A site reporting "dropped" is recorded in site_status but never copied to
+    your status: "dropped" is a reader-only status, so copying it would make
+    the entry immune to every future site update (fixed in 2.3.1).
+    """
     if not site_status:
         return False
     changed = False
     if site_status != novel.site_status:
         novel.site_status = site_status
         changed = True
+    if site_status == "dropped":
+        return changed
     if novel.status not in READER_ONLY_STATUSES and novel.status != site_status:
         novel.status = site_status
         changed = True
@@ -186,6 +235,14 @@ def apply_scrape_result(novel: Novel, result) -> bool:
         if chapter_list != novel.chapter_list:
             novel.chapter_list = chapter_list
             changed = True
+        if locked_list != novel.locked_list:
+            novel.locked_list = locked_list
+            changed = True
+    elif result.locked_list:
+        # Wuxiaworld's simple-mode result has no full chapter list but does
+        # know which of the newest chapters are paid ("advance"). Before
+        # 2.3.1 that locked list was silently dropped.
+        locked_list = ch.encode_ranges(result.locked_list)
         if locked_list != novel.locked_list:
             novel.locked_list = locked_list
             changed = True
@@ -258,12 +315,23 @@ class NovelRepository:
         }
 
     def insert(self, novel: Novel) -> str:
-        """Insert a new novel. Returns the new (or preserved) id."""
+        """Insert a new novel. Returns the new (or preserved) id.
+
+        Idempotent when the novel already has an _id: an existing record is
+        replaced instead of adding a second document with the same id. Before
+        2.3.1 re-running the legacy MongoDB import (or any other repeat
+        insert) created duplicate rows, which the UI then keyed over each
+        other. Any duplicates already left behind by an older version are
+        collapsed into one clean record here too.
+        """
         if not novel._id:
             novel._id = uuid.uuid4().hex
         doc = self._to_doc(novel)
+        query = Query()._id == novel._id
         with get_lock():
             backup_library_file()
+            if self.table.search(query):
+                self.table.remove(query)
             self.table.insert(doc)
         return novel._id
 
@@ -308,9 +376,9 @@ class NovelRepository:
             docs = self.table.all()
         novels = [Novel.from_dict(d) for d in docs]
 
-        if status_filter:
+        if status_filter is not None:
             novels = [n for n in novels if n.status in status_filter]
-        if genre_filter:
+        if genre_filter is not None:
             novels = [n for n in novels if any(g in n.genres for g in genre_filter)]
         if search_text:
             needle = search_text.lower()
@@ -335,9 +403,16 @@ class NovelRepository:
 
     def save_cover(self, image_bytes: bytes, filename: str = "", content_type: str = "image/jpeg") -> str:
         """Save a cover image as a local file. Returns its filename (used as
-        the id passed around as Novel.cover_image_id)."""
-        cover_id = f"{uuid.uuid4().hex}.jpg"
-        (COVERS_DIR / cover_id).write_bytes(image_bytes)
+        the id passed around as Novel.cover_image_id).
+
+        The bytes are re-encoded as JPEG when possible, so the ".jpg" name is
+        always truthful. If Pillow can't read them, the real format is
+        detected and the matching extension is used instead; before 2.3.1
+        every file was named ".jpg" even when it was a PNG or WebP.
+        """
+        data, ext = _normalize_cover(image_bytes)
+        cover_id = f"{uuid.uuid4().hex}{ext}"
+        (COVERS_DIR / cover_id).write_bytes(data)
         return cover_id
 
     def get_cover(self, file_id: str) -> Optional[bytes]:

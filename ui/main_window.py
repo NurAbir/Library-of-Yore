@@ -1,4 +1,5 @@
 """Main application window for LibraryOfYore."""
+import os
 import webbrowser
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
@@ -12,6 +13,7 @@ from PyQt6.QtGui import QAction, QFont, QIcon, QKeySequence
 
 from database.models import NovelRepository, Novel, apply_scrape_result
 import api_server
+import startup
 from ui.setup_wizard import ImportWizard
 from ui.add_novel_dialog import AddNovelDialog
 from ui.novel_card import NovelCard
@@ -123,7 +125,7 @@ class MainWindow(QMainWindow):
     # Qt routes it safely to the main thread.
     chapter_updated = pyqtSignal(str, str)  # novel_id, chapter (e.g. "12" or "2.5")
 
-    def __init__(self):
+    def __init__(self, start_minimized: bool = False):
         super().__init__()
         self.setWindowTitle("Library of Yore")
         self.setWindowIcon(QIcon(get_asset_path("logo.ico")))
@@ -132,7 +134,11 @@ class MainWindow(QMainWindow):
         self.novel_cards = {}  # novel_id -> NovelCard, insertion order == display order
         self.current_sort = "last_read"
         self._current_cols = None
-        self._force_quit = False  # True only when user picks Quit from tray
+        self._force_quit = False  # True only when a real quit was requested
+        self._shut_down = False
+        self._start_minimized = start_minimized
+        self._tray_available = False
+        self._api_error = None
 
         # Debounce grid reflow on window resize so we don't re-layout on every pixel
         self._reflow_timer = QTimer(self)
@@ -159,6 +165,16 @@ class MainWindow(QMainWindow):
         self._setup_tray()
         self._refresh_library()
         self._start_novelfire_refresh()   # auto-fetch latest chapters/status on open
+        # Ask after the window is up, so the question has a parent and the
+        # user sees the app before a dialog appears. Skipped at Windows login.
+        QTimer.singleShot(0, self._maybe_ask_startup)
+        if self._api_error and not self._start_minimized:
+            QTimer.singleShot(0, self._show_api_error)
+
+    @property
+    def tray_available(self) -> bool:
+        """True once a real system tray icon was created for this session."""
+        return self._tray_available
 
     def _apply_screen_geometry(self):
         """Detect the screen the app will open on and size the window to fill
@@ -193,7 +209,12 @@ class MainWindow(QMainWindow):
 
         self.repo = NovelRepository()
         # Start local API server for the browser extension
-        api_server.start()
+        try:
+            api_server.start()
+        except OSError as e:
+            # Port already in use: another copy, or an unrelated process. The
+            # app itself must still start; the extension just can't connect.
+            self._api_error = str(e)
         # Wire the extension → UI bridge: signal is thread-safe across Qt threads
         self.chapter_updated.connect(self._on_extension_chapter_update)
         api_server.set_progress_callback(
@@ -227,7 +248,15 @@ class MainWindow(QMainWindow):
         file_menu.addSeparator()
         file_menu.addAction("Import Existing MongoDB Library…", self._import_legacy_library)
         file_menu.addSeparator()
-        file_menu.addAction("Exit", self.close)
+        self.startup_action = QAction("Start with Windows", self)
+        self.startup_action.setCheckable(True)
+        self.startup_action.setChecked(startup.is_enabled())
+        self.startup_action.setStatusTip("Launch Library of Yore in the system tray when you sign in to Windows")
+        self.startup_action.toggled.connect(self._set_startup_enabled)
+        file_menu.addAction(self.startup_action)
+        file_menu.addSeparator()
+        exit_action = file_menu.addAction("Exit", self._quit_app)
+        exit_action.setShortcut(QKeySequence("Ctrl+Q"))
 
         view_menu = menubar.addMenu("View")
         refresh_action = view_menu.addAction("Refresh", self._refresh_library)
@@ -375,7 +404,12 @@ class MainWindow(QMainWindow):
         # Status bar
         self.statusbar = QStatusBar()
         self.setStatusBar(self.statusbar)
-        self.statusbar.showMessage(f"Ready  •  Browser extension API: localhost:{api_server.PORT}")
+        if self._api_error:
+            self.statusbar.showMessage(
+                "Ready  •  Browser extension API unavailable — port 7337 is already in use"
+            )
+        else:
+            self.statusbar.showMessage(f"Ready  •  Browser extension API: localhost:{api_server.PORT}")
 
     def _apply_theme(self):
         """Apply the shared dark theme stylesheet."""
@@ -426,6 +460,13 @@ class MainWindow(QMainWindow):
             row, col = divmod(i, cols)
             self.grid_layout.addWidget(card, row, col)
 
+    def _show_empty_state(self, text: str):
+        empty_label = QLabel(text)
+        empty_label.setObjectName("emptyState")
+        empty_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        empty_label.setContentsMargins(0, 60, 0, 0)
+        self.grid_layout.addWidget(empty_label, 0, 0)
+
     def _refresh_library(self):
         """Reload and display novels from database."""
         if not self.repo:
@@ -442,22 +483,29 @@ class MainWindow(QMainWindow):
         # Fetch
         search = self.search_input.text().strip()
         statuses = self._get_active_filters()
+
+        self.stats_label.setText("0 novels")
+        if not statuses:
+            # With every status unchecked, "no filter" would show everything,
+            # which is the opposite of what the empty filter implies.
+            self.statusbar.showMessage("No status filters selected — check at least one in Filters")
+            self._show_empty_state(
+                "No status filters selected\nCheck at least one status under Filters to see your novels."
+            )
+            return
+
         novels = self.repo.get_all(
-            status_filter=statuses if statuses else None,
+            status_filter=statuses,
             search_text=search,
             sort_by=self.current_sort,
-            sort_order="desc"
+            sort_order="asc" if self.current_sort == "title" else "desc"
         )
 
         self.stats_label.setText(f"{len(novels)} novel{'s' if len(novels) != 1 else ''}")
         self.statusbar.showMessage(f"Loaded {len(novels)} novels")
 
         if not novels:
-            empty_label = QLabel("📚\nNo novels found — click \u201c+ Add Novel\u201d to get started!")
-            empty_label.setObjectName("emptyState")
-            empty_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            empty_label.setContentsMargins(0, 60, 0, 0)
-            self.grid_layout.addWidget(empty_label, 0, 0)
+            self._show_empty_state("📚\nNo novels found — click \u201c+ Add Novel\u201d to get started!")
             return
 
         # Populate grid
@@ -569,13 +617,17 @@ class MainWindow(QMainWindow):
         Updates site data only: never your current chapter, never last_read,
         and never a status you set to Dropped or Planned."""
         novel = self.repo.get_by_id(novel_id)
-        if not novel or not apply_scrape_result(novel, result):
+        if not novel:
             return
+        changed = apply_scrape_result(novel, result)
+        # Queue the result even when nothing visible changed: apply_scrape_result
+        # also stamps last_scraped, and that should reach the file too.
         self._pending_refresh[novel_id] = result
-        card = self.novel_cards.get(novel_id)
-        if card:
-            card.set_novel(novel)
-            card.mark_updated()
+        if changed:
+            card = self.novel_cards.get(novel_id)
+            if card:
+                card.set_novel(novel)
+                card.mark_updated()
         if len(self._pending_refresh) >= 25:
             self._flush_refresh()  # bound what an interrupted refresh could lose
 
@@ -587,7 +639,8 @@ class MainWindow(QMainWindow):
         to_save = []
         for novel_id, result in pending.items():
             novel = self.repo.get_by_id(novel_id)
-            if novel and apply_scrape_result(novel, result):
+            if novel:
+                apply_scrape_result(novel, result)
                 to_save.append(novel)
         return self.repo.update_many(to_save)
 
@@ -644,30 +697,49 @@ class MainWindow(QMainWindow):
             f"<p><b>Browser Extension API:</b> localhost:{api_server.PORT}</p>"
         )
 
+    def _show_api_error(self):
+        if not self._api_error:
+            return
+        QMessageBox.warning(
+            self, "Browser Extension API",
+            "Library of Yore could not start its local API server, so the "
+            "browser extension can't connect right now.\n\n"
+            "Another copy of the app or another program may already be using "
+            f"port {api_server.PORT}.\n\n"
+            "Everything else in the app still works."
+        )
+
     def _setup_tray(self):
         """Create the system tray icon so the app keeps running when the window is closed."""
-        if not QSystemTrayIcon.isSystemTrayAvailable():
-            return
+        try:
+            if not QSystemTrayIcon.isSystemTrayAvailable():
+                self._tray_available = False
+                return
 
-        self.tray_icon = QSystemTrayIcon(QIcon(get_asset_path("logo.ico")), self)
-        self.tray_icon.setToolTip("Library of Yore — tracking in background")
+            self.tray_icon = QSystemTrayIcon(QIcon(get_asset_path("logo.ico")), self)
+            self.tray_icon.setToolTip("Library of Yore — tracking in background")
 
-        tray_menu = QMenu()
+            tray_menu = QMenu()
 
-        open_action = QAction("Open Library", self)
-        open_action.triggered.connect(self._show_window)
-        tray_menu.addAction(open_action)
+            open_action = QAction("Open Library", self)
+            open_action.triggered.connect(self._show_window)
+            tray_menu.addAction(open_action)
 
-        tray_menu.addSeparator()
+            tray_menu.addSeparator()
 
-        quit_action = QAction("Quit", self)
-        quit_action.triggered.connect(self._quit_app)
-        tray_menu.addAction(quit_action)
+            quit_action = QAction("Quit", self)
+            quit_action.triggered.connect(self._quit_app)
+            tray_menu.addAction(quit_action)
 
-        self.tray_icon.setContextMenu(tray_menu)
-        # Single-click or double-click the tray icon → reopen window
-        self.tray_icon.activated.connect(self._on_tray_activated)
-        self.tray_icon.show()
+            self.tray_icon.setContextMenu(tray_menu)
+            # Single-click or double-click the tray icon → reopen window
+            self.tray_icon.activated.connect(self._on_tray_activated)
+            self.tray_icon.show()
+            self._tray_available = True
+        except Exception:
+            # No usable tray: closing the window must then really quit,
+            # otherwise the app would keep running invisibly.
+            self._tray_available = False
 
     def _show_window(self):
         if self.isMaximized():
@@ -682,27 +754,141 @@ class MainWindow(QMainWindow):
                       QSystemTrayIcon.ActivationReason.DoubleClick):
             self._show_window()
 
-    def _quit_app(self):
-        self._force_quit = True
-        QApplication.quit()
+    def _shutdown(self):
+        """One cleanup path for every real quit (File → Exit, tray Quit, or a
+        window close when no tray exists). Safe to call twice."""
+        if self._shut_down:
+            return
+        self._shut_down = True
 
-    def closeEvent(self, event):
-        if self._force_quit:
-            # Real quit — clean up and exit
+        # Stop listening to the refresh worker before tearing down storage,
+        # so a late result can't touch a closed library.
+        worker = getattr(self, "refresh_worker", None)
+        if worker is not None:
+            try:
+                worker.novel_updated.disconnect(self._on_novel_refreshed)
+                worker.finished.disconnect(self._on_refresh_finished)
+            except (TypeError, RuntimeError):
+                pass
+
+        try:
             if self._pending_refresh:
                 self._flush_refresh()
+        except Exception:
+            pass
+
+        try:
+            api_server.stop()
+        except Exception:
+            pass
+
+        try:
             from database.connection import close_db
             close_db()
+        except Exception:
+            pass
+
+        try:
+            if getattr(self, "tray_icon", None):
+                self.tray_icon.hide()
+        except Exception:
+            pass
+
+        # setQuitOnLastWindowClosed(False) is needed for the tray behaviour,
+        # so a real quit must ask Qt explicitly.
+        QApplication.quit()
+
+    def _quit_app(self):
+        """Fully exit. Unlike closing the window, this is never a hide."""
+        self._force_quit = True
+        self.close()
+
+    def closeEvent(self, event):
+        if self._force_quit or not self._tray_available:
+            # Real quit: File → Exit / tray Quit, or no tray to hide into.
+            self._force_quit = True
+            self._shutdown()
             event.accept()
-        else:
-            # Hide to tray instead of closing
-            event.ignore()
-            self.hide()
-            if hasattr(self, "tray_icon") and not self._tray_hint_shown:
-                self._tray_hint_shown = True
-                self.tray_icon.showMessage(
-                    "Library of Yore",
-                    "Still tracking in the background. Right-click the tray icon to quit.",
-                    QSystemTrayIcon.MessageIcon.Information,
-                    3000
+            return
+
+        # Hide to tray instead of closing
+        event.ignore()
+        self.hide()
+        if not self._tray_hint_shown:
+            self._tray_hint_shown = True
+            self.tray_icon.showMessage(
+                "Library of Yore",
+                "Still tracking in the background. Right-click the tray icon to quit.",
+                QSystemTrayIcon.MessageIcon.Information,
+                3000
+            )
+
+    def _maybe_ask_startup(self):
+        """Ask once, on the first normal launch, whether the app may start
+        with Windows. Answering stores the choice and never asks again."""
+        if self._start_minimized or os.environ.get("LIBRARYOFYORE_NO_STARTUP_PROMPT"):
+            return
+
+        cfg = load_config()
+        if cfg.get("startup_prompt_shown"):
+            # Keep the stored command pointing at the current exe/python path
+            # (a portable build may have been moved since last time).
+            if cfg.get("run_at_startup") and startup.is_supported():
+                startup.enable()
+            return
+
+        if not startup.is_supported():
+            cfg["startup_prompt_shown"] = True
+            save_config(cfg)
+            return
+
+        reply = QMessageBox.question(
+            self, "Start with Windows",
+            "Start Library of Yore automatically when you sign in to Windows?\n\n"
+            "It will open hidden in the system tray so it can keep tracking your "
+            "reading without getting in the way. You can change this later under "
+            "File → Start with Windows.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.Yes,
+        )
+
+        cfg["startup_prompt_shown"] = True
+        if reply == QMessageBox.StandardButton.Yes:
+            ok = startup.enable()
+            cfg["run_at_startup"] = ok
+            if not ok:
+                QMessageBox.warning(
+                    self, "Start with Windows",
+                    "Windows wouldn't accept the startup entry. You can try again "
+                    "from File → Start with Windows."
                 )
+        else:
+            startup.disable()
+            cfg["run_at_startup"] = False
+        save_config(cfg)
+        if hasattr(self, "startup_action"):
+            self.startup_action.blockSignals(True)
+            self.startup_action.setChecked(startup.is_enabled())
+            self.startup_action.blockSignals(False)
+
+    def _set_startup_enabled(self, enabled: bool):
+        """File → Start with Windows toggled on or off."""
+        ok = startup.set_enabled(enabled)
+        actual = startup.is_enabled()
+
+        cfg = load_config()
+        cfg["startup_prompt_shown"] = True
+        cfg["run_at_startup"] = actual
+        save_config(cfg)
+
+        if hasattr(self, "startup_action"):
+            self.startup_action.blockSignals(True)
+            self.startup_action.setChecked(actual)
+            self.startup_action.blockSignals(False)
+
+        if not ok or actual != enabled:
+            QMessageBox.warning(
+                self, "Start with Windows",
+                "Windows wouldn't update the startup setting. "
+                "Try running the app normally (not from a temporary folder) and again."
+            )

@@ -12,7 +12,7 @@ Built with Python and PyQt6 — stored locally, no database server required.
 [![PyQt6](https://img.shields.io/badge/PyQt6-6.4+-green.svg)](https://riverbankcomputing.com/software/pyqt)
 [![Storage](https://img.shields.io/badge/Storage-Local%20JSON-lightgrey.svg)]()
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-2.3.0-orange.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/Version-2.3.1-orange.svg)](CHANGELOG.md)
 
 </div>
 
@@ -44,7 +44,8 @@ Supports **Novelfire**, **NovelPhoenix**, **Wuxiaworld**, **FreeWebNovel**, **Fl
 | **Excel Export** | Export your entire library to `.xlsx` with one click |
 | **Dark Theme** | Antique-gold accent on a charcoal slate palette — easy on the eyes for long reading sessions |
 | **Opens Maximized** | Detects your screen size on launch and opens windowed full-screen, so you're never stuck with a cramped default window |
-| **System Tray** | Closing the window hides the app to the tray — the API server keeps running in the background |
+| **System Tray** | Closing the window hides the app to the tray — the API server keeps running in the background. **File → Exit** or the tray's **Quit** fully exits |
+| **Start with Windows** | Optional, asks permission on first launch. Starts hidden in the tray at login; toggle it any time under **File → Start with Windows** (no admin rights) |
 | **Browser Extension** | Auto-updates your chapter progress as you read on Novelfire, NovelPhoenix, Wuxiaworld, FreeWebNovel, Flame Comics (novels and manga) and MangaFire, even with the window hidden |
 | **Single-File Portable** | Distributes as one standalone `.exe` — no installation required |
 
@@ -97,7 +98,13 @@ You do **not** need to keep the Library of Yore window open. When you click the 
 | Right-click → **Open Library** | Reopens the main window |
 | Right-click → **Quit** | Fully exits the app and stops the server |
 
+**File → Exit** (or `Ctrl+Q`) also fully exits. Closing the window itself only hides it.
+
 A notification balloon appears the first time you close the window to let you know it is still running.
+
+### Start with Windows
+
+On the first normal launch, Library of Yore asks whether it may start automatically when you sign in to Windows. Say **Yes** to have it start hidden in the system tray at login, ready for the browser extension; say **No** and it won't. Change your mind any time under **File → Start with Windows**. The setting is stored in your own Windows account's `Run` key, so it needs no administrator rights. When launched at login the app stays in the tray instead of opening a window.
 
 ### Installing the Extension
 
@@ -140,7 +147,7 @@ Download `LibraryOfYore_Setup.exe` and run it to install to Program Files with a
 
 ### 2. First Launch
 
-The main window opens immediately — there's nothing to install or configure first. Titles from every supported site begin auto-refreshing in the background.
+The main window opens immediately — there's nothing to install or configure first. On the first launch the app also asks whether it may start automatically with Windows (you can change this later under **File → Start with Windows**). Titles from every supported site begin auto-refreshing in the background.
 
 > **Upgrading to 2.1.0?** Your library is converted automatically on first launch (chapter 0 becomes "Not started"). Older versions can't open it afterwards; the dated copies in `backups\` are your way back.
 
@@ -212,9 +219,10 @@ build.bat
 
 ```
 Library-of-Yore/
-├── main.py                 # Entry point — also writes crash_log.txt on startup failure
+├── main.py                 # Entry point — single-instance guard, crash log, --startup tray launch
 ├── api_server.py           # Local HTTP server (localhost:7337) for the browser extension; matches a browser URL to a saved title
 ├── config.py               # App configuration, paths, asset loader
+├── startup.py              # Opt-in "Start with Windows" via the per-user Run registry key
 ├── requirements.txt        # Python dependencies
 ├── build.py                # PyInstaller build script (--folder / default onefile)
 ├── build.bat               # One-click single-file portable build
@@ -301,7 +309,8 @@ All data is stored **locally** — nothing leaves your machine, and no database 
 | Library looks empty / won't load on startup | Since v2.0 this is repaired automatically on next launch (wrong-encoding files are fixed in place, then `.bak`, then quarantine as a last resort) — see [User Manual](USER_MANUAL.md#17-troubleshooting) if you see a message saying the automatic repair itself failed |
 | Existing MongoDB library not detected | The import check only looks at `localhost:27017` (or a custom URI from an old `config.json`) — make sure MongoDB is still running the first time you launch 2.0, then use **File → Import Existing MongoDB Library…** |
 | Chapters show wrong number | Update to v1.0.1+ — the 4-digit chapter bug is fixed |
-| Extension shows "Disconnected" | Make sure Library of Yore is running (check the system tray) |
+| Extension shows "Disconnected" | Make sure Library of Yore is running (check the system tray). If the status bar says the API is unavailable, another program is using port 7337 — close it and restart the app |
+| Launching the app again does nothing / opens no window | It is already running. A second launch brings the existing window to the front; the app never opens two copies |
 | Card not updating from extension | Confirm the novel's Source URL matches the site you are reading on, and that Auto-sync is on in the extension's settings |
 | Flame Comics chapter not detected | Save the title with its main page URL (`/novel/N` for the novel, `/series/N` for the manga), and reload the extension after updating it. The novel and the manga are separate entries |
 | MangaFire chapter not detected | Reload the extension after updating it (`chrome://extensions` → reload), then refresh the page. If the popup says *This page wasn't recognised as a chapter* it shows the page's path and what the page offered as a chapter label (title, headings, selected chapter): send that text in an issue, since the number is read from the page and MangaFire's layout can change. The saved title's Source URL should be its series page (`https://mangafire.to/title/{id}-{slug}`) |

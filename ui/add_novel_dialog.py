@@ -97,6 +97,8 @@ class AddNovelDialog(QDialog):
         # the stored novel when editing; replaced when Fetch Metadata runs.
         self.chapter_list = novel.chapter_list if novel else ""
         self.locked_list = novel.locked_list if novel else ""
+        self.scrape_worker = None
+        self.cover_worker = None
 
         self.setWindowTitle("Edit Novel" if self.is_edit else "Add Novel")
         self.setMinimumSize(750, 600)
@@ -399,6 +401,10 @@ class AddNovelDialog(QDialog):
         url = self.url_input.text().strip()
         if not url:
             return
+        # Enter in the URL field can fire again while the first fetch is still
+        # running; one worker at a time keeps the results from interleaving.
+        if self.scrape_worker is not None and self.scrape_worker.isRunning():
+            return
 
         self.fetch_btn.setEnabled(False)
         self.fetch_btn.setText("Fetching...")
@@ -426,6 +432,11 @@ class AddNovelDialog(QDialog):
             self.latest_chapter_input.setText(result.latest_chapter)
         if result.chapter_list:
             self.chapter_list = ch.encode_ranges(result.chapter_list)
+            self.locked_list = ch.encode_ranges(result.locked_list)
+            self._update_chapter_list_label()
+        elif result.locked_list:
+            # Wuxiaworld's simple-mode result has locked "advance" chapters
+            # without a full chapter list (fixed 2.3.1).
             self.locked_list = ch.encode_ranges(result.locked_list)
             self._update_chapter_list_label()
         if result.source_name in TYPE_AWARE_SOURCES:
@@ -514,6 +525,8 @@ class AddNovelDialog(QDialog):
         url = self.scraped_cover_url or self.url_input.text().strip()
         if not url:
             return
+        if self.cover_worker is not None and self.cover_worker.isRunning():
+            return
         self.download_cover_btn.setEnabled(False)
         self.download_cover_btn.setText("Downloading...")
         self.cover_worker = CoverWorker(url)
@@ -584,6 +597,10 @@ class AddNovelDialog(QDialog):
 
         source_url = self.url_input.text().strip()
         scraper = get_scraper_for_url(source_url) if source_url else None
+        if scraper:
+            # Save the series page, not whatever chapter link was pasted, so
+            # the extension's URL matching keeps working as you read on.
+            source_url = scraper.canonical_page_url(source_url)
         form = dict(
             title=title,
             author=self.author_input.text().strip(),

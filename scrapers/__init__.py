@@ -7,23 +7,29 @@ from .freewebnovel import FreeWebNovelScraper
 from .flamecomics import FlameComicsScraper
 from .mangafire import MangaFireScraper
 
+# Tried in order. Each scraper checks the URL's hostname (not a substring of
+# the whole URL), so a look-alike domain can't claim another site's links.
+_SCRAPER_CLASSES = (
+    NovelfireScraper,
+    NovelPhoenixScraper,
+    WuxiaworldScraper,
+    FreeWebNovelScraper,
+    FlameComicsScraper,
+    MangaFireScraper,
+)
+
+
 def get_scraper_for_url(url: str):
-    """Factory: return appropriate scraper for a URL."""
-    domain = url.lower()
-    if "novelfire.net" in domain or "novelfire.com" in domain:
-        return NovelfireScraper()
-    elif "novelphoenix.com" in domain:
-        return NovelPhoenixScraper()
-    elif "wuxiaworld.com" in domain:
-        return WuxiaworldScraper()
-    elif "freewebnovel.com" in domain:
-        return FreeWebNovelScraper()
-    elif "flamecomics.xyz" in domain:
-        return FlameComicsScraper()
-    elif "mangafire.to" in domain:
-        return MangaFireScraper()
+    """Factory: return appropriate scraper for a URL, or None."""
+    for scraper_class in _SCRAPER_CLASSES:
+        scraper = scraper_class()
+        if scraper.can_handle(url):
+            return scraper
     return None
 
-__all__ = ["ScraperResult", "BaseScraper", "NovelfireScraper", "NovelPhoenixScraper",
-           "WuxiaworldScraper", "FreeWebNovelScraper", "FlameComicsScraper",
-           "MangaFireScraper", "get_scraper_for_url"]
+
+__all__ = [
+    "ScraperResult", "BaseScraper", "NovelfireScraper", "NovelPhoenixScraper",
+    "WuxiaworldScraper", "FreeWebNovelScraper", "FlameComicsScraper",
+    "MangaFireScraper", "get_scraper_for_url",
+]

@@ -125,6 +125,10 @@ class FlameComicsScraper(BaseScraper):
     SOURCE_NAME = "flamecomics"
     DOMAIN_PATTERNS = ["flamecomics.xyz"]
 
+    def canonical_page_url(self, url: str) -> str:
+        parsed = canonical_url(url)
+        return parsed[2] if parsed else (url or "").strip()
+
     def scrape(self, url: str) -> ScraperResult:
         result = ScraperResult(source_name=self.SOURCE_NAME)
         parsed = canonical_url(url)

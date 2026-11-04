@@ -2,6 +2,36 @@
 
 All notable changes to Library of Yore.
 
+## [2.3.1] - 2026-11-04
+
+A correctness and reliability release: quitting, startup with Windows, duplicate imports, locked chapters, URL matching, filtering and cover files.
+
+### Added
+- **Start with Windows (opt-in).** On the first normal launch the app asks whether it may start automatically when you sign in. The answer is remembered and is also available any time under **File → Start with Windows**. It uses the per-user `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` key, so no administrator rights are needed. At login the app starts hidden in the system tray.
+- **One running copy.** Launching the app again now brings the existing hidden window back instead of opening a second copy that shares the same library file and fights over port 7337.
+
+### Fixed
+- **File → Exit now exits.** It used to call `close()`, which the close-to-tray handler turned into a hide. Exit (and the tray's Quit) now flush pending refresh results, stop the extension API, close the library and remove the tray icon. Closing the window still hides to an active tray, as before.
+- **Closing with no usable system tray** now quits instead of leaving an invisible process with no way back.
+- **A port-7337 collision no longer crashes startup.** If another copy or program owns the port, the app warns and keeps working without extension sync.
+- **Re-importing a MongoDB library no longer duplicates every novel.** Inserts are idempotent by id, and duplicate rows left by older builds are collapsed when that id is saved again.
+- **Wuxiaworld's locked (paid advance) chapters are kept even when the site gives no full chapter list.** They were dropped before, so "locked behind" showed nothing for those novels.
+- **Chapter links saved as Source URL no longer break extension matching.** Source URLs are stored as the series page (for example `/book/shadow-slave`), and existing entries saved with a `/chapter-5` URL now match later chapters too.
+- **Unchecking every status filter shows an empty list** with a "check at least one status" note, instead of unexpectedly showing the whole library.
+- **Unknown site status is left unknown** instead of being guessed as "ongoing", so a novel you marked Hiatus isn't flipped back on refresh. A site reporting "dropped" is recorded separately and no longer becomes a reader-only status that can never update again.
+- **The extension's Sync button is disabled after a successful sync** instead of remaining clickable and re-posting the same update.
+- **Cover files match their content.** Covers are re-encoded as JPEG, or kept with their real `.png`/`.webp`/`.gif` extension when they can't be decoded, instead of every file being named `.jpg`.
+- Scraper detection matches the URL's hostname, so `https://novelfire.net.evil.example/...` is no longer treated as Novelfire.
+- **Title sorting is A → Z** (it was always descending, so Title sorted Z → A).
+- **`config.json` is written atomically**, so a crash during a settings save can't leave a truncated file.
+- **MangaFire's readiness check** no longer relies on the meaningless substring `"hap"` (part of the word "chapter"); it waits for a real chapter list.
+- **`last_scraped` is saved even when a refresh changes nothing visible**, so "last checked" stays accurate.
+- **Fetch Metadata can't be started twice at once** by pressing Enter repeatedly; a duplicate-fetch guard covers metadata and cover downloads.
+
+### Changed
+- Documentation covers the new startup prompt/menu, the corrected exit behaviour, the meaning of an empty status filter, and the current MangaFire limitations.
+- Version bumped to 2.3.1 everywhere (app, extension manifest, installer, README, manual and changelog).
+
 ## [2.3.0] - 2026-11-04
 
 MangaFire (mangafire.to) joins the supported sites, for manga, manhwa and manhua. Tested by the maintainer on real MangaFire pages.

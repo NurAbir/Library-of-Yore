@@ -133,6 +133,9 @@ class WuxiaworldScraper(BaseScraper):
         m = re.match(r"^(https?://[^/]+)/novel/([^/?#]+)", url.strip(), re.IGNORECASE)
         return f"{m.group(1)}/novel/{m.group(2)}" if m else url.strip()
 
+    def canonical_page_url(self, url: str) -> str:
+        return self.canonical_url(url)
+
     def scrape(self, url: str) -> ScraperResult:
         result = ScraperResult(source_name=self.SOURCE_NAME)
         if not self.can_handle(url):

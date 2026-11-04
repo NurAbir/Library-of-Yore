@@ -35,6 +35,9 @@ class NovelfireScraper(BaseScraper):
         m = re.match(rf"^(https?://[^/]+)/{self.BOOK_PATH}/([^/?#]+)", url.strip(), re.IGNORECASE)
         return f"{m.group(1)}/{self.BOOK_PATH}/{m.group(2)}" if m else url.strip()
 
+    def canonical_page_url(self, url: str) -> str:
+        return self.canonical_url(url)
+
     def scrape(self, url: str) -> ScraperResult:
         result = ScraperResult(source_name=self.SOURCE_NAME)
         if not self.can_handle(url):
@@ -107,7 +110,7 @@ class NovelfireScraper(BaseScraper):
                 count = int(digits) if digits else None
             elif not status_text and re.search(r"status", t, re.IGNORECASE):
                 status_text = re.sub(r"status", "", t, flags=re.IGNORECASE).strip()
-        result.status = self._normalize_status(status_text) if status_text else "ongoing"
+        result.status = self._normalize_status(status_text)
 
         if count:
             # Chapters are numbered by position 1..count (see module docstring)

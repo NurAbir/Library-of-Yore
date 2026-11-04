@@ -65,6 +65,8 @@ python -m PyInstaller ^
     --hidden-import database.connection ^
     --hidden-import database.models ^
     --hidden-import database.legacy_mongo ^
+    --hidden-import startup ^
+    --hidden-import PyQt6.QtNetwork ^
     --hidden-import tinydb ^
     --hidden-import pymongo ^
     --hidden-import gridfs ^

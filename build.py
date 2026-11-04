@@ -31,6 +31,8 @@ COMMON_HIDDEN_IMPORTS = [
     "database.connection",
     "database.models",
     "database.legacy_mongo",
+    "startup",
+    "PyQt6.QtNetwork",
     "tinydb",
     "pymongo",
     "gridfs",

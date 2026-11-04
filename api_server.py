@@ -226,6 +226,22 @@ def _path_segments(url: str) -> List[str]:
     return [re.sub(r"\.html?$", "", seg.lower()) for seg in path.split("/") if seg]
 
 
+# A path segment that starts a chapter part of the URL: "chapter-5",
+# "chapter/8205410", or Wuxiaworld's "cd-book-21-chapter-44".
+_CHAPTER_SEGMENT_RE = re.compile(r"(?:^|[-_])ch(?:apter)?[-_]?\d", re.IGNORECASE)
+
+
+def _series_segments(url: str) -> List[str]:
+    """The part of a URL's path that identifies the series, with a chapter
+    tail removed. Needed for entries saved before v2.3.1, whose Source URL may
+    still be a chapter link such as /book/shadow-slave/chapter-5."""
+    segments = _path_segments(url)
+    for i, segment in enumerate(segments):
+        if segment in ("chapter", "chapters") or _CHAPTER_SEGMENT_RE.search(segment):
+            return segments[:i]
+    return segments
+
+
 # Path segments that never identify a specific novel on their own.
 _GENERIC_SEGMENTS = {
     "novel", "novels", "book", "books", "series", "manga", "comic", "comics",
@@ -286,7 +302,10 @@ def _find_by_url(novels, browser_url: str):
     for n in novels:
         if not n.source_url or _domain(n.source_url) != browser_domain:
             continue
-        stored_segs = _path_segments(n.source_url)
+        # A chapter tail on a stored URL (an entry saved from a chapter link
+        # before v2.3.1) is not part of the series identity: compare the
+        # series part, so /book/shadow-slave/chapter-5 matches chapter-6.
+        stored_segs = _series_segments(n.source_url)
         if not stored_segs:
             continue  # a bare site URL can't identify a novel
 
@@ -337,12 +356,22 @@ def _find_by_title(novels, title: str, browser_domain: str = "", content_type: s
 # ── Server lifecycle ───────────────────────────────────────────────────────────
 
 def start():
-    """Start the API server in a daemon thread. Safe to call multiple times."""
+    """Start the API server in a daemon thread. Safe to call multiple times.
+
+    Raises OSError when 127.0.0.1:7337 is already in use, so the caller can
+    warn and keep the rest of the app working instead of crashing at startup.
+    """
     global _server_instance
     if _server_instance:
         return
 
-    server = HTTPServer(("127.0.0.1", PORT), Handler)
+    try:
+        server = HTTPServer(("127.0.0.1", PORT), Handler)
+    except OSError as e:
+        raise OSError(
+            f"Could not start the browser-extension API on 127.0.0.1:{PORT} "
+            f"(is another copy of Library of Yore already running?): {e}"
+        ) from e
     _server_instance = server
 
     t = threading.Thread(target=server.serve_forever, daemon=True, name="LoY-API")

@@ -188,6 +188,7 @@ btnSync.addEventListener("click", async () => {
     syncState.className   = "sync-state sync-state--success";
     syncState.textContent = `✓ Synced to Ch ${state.reading.chapter}`;
     btnSync.textContent   = "Already synced";
+    btnSync.disabled      = true;
     // Refresh lib chapter display
     libChapter.textContent = `Ch ${state.reading.chapter}`;
   } else {

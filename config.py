@@ -6,7 +6,7 @@ from pathlib import Path
 
 APP_NAME = "LibraryOfYore"
 DISPLAY_NAME = "Library of Yore"
-APP_VERSION = "2.3.0"
+APP_VERSION = "2.3.1"
 
 # Paths
 APP_DATA_DIR = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData/Local")) / APP_NAME
@@ -65,6 +65,12 @@ def load_config():
         "theme": "dark",
         "window_size": [1200, 800],
         "default_sort": "last_read",
+        # Set once the first-run "start with Windows?" question has been
+        # answered, so the app never asks again.
+        "startup_prompt_shown": False,
+        # The answer, mirrored here for reference. The real switch is the
+        # per-user Windows Run registry value (see startup.py).
+        "run_at_startup": False,
     }
     if CONFIG_FILE.exists():
         try:
@@ -77,9 +83,26 @@ def load_config():
 
 
 def save_config(cfg):
-    """Save user config to JSON."""
-    with open(CONFIG_FILE, "w", encoding="utf-8") as f:
-        json.dump(cfg, f, indent=2)
+    """Save user config to JSON atomically.
+
+    A crash or power cut during a plain open/write could leave a truncated
+    config.json behind. It is only a settings file (the library has its own
+    backups), but writing a temp file and swapping it into place costs nothing
+    and keeps that from happening.
+    """
+    tmp = CONFIG_FILE.with_name(CONFIG_FILE.name + ".tmp")
+    try:
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(cfg, f, indent=2)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, CONFIG_FILE)
+    finally:
+        try:
+            if tmp.exists():
+                tmp.unlink()
+        except OSError:
+            pass
 
 
 def get_asset_path(filename: str) -> str:

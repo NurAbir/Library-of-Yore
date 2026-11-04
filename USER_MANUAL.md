@@ -1,6 +1,6 @@
 # Library of Yore — User Manual
 
-**Version 2.3.0**
+**Version 2.3.1**
 
 A complete guide to installing, using, and troubleshooting Library of Yore, your personal desktop tracker for web novels and manga.
 
@@ -419,16 +419,18 @@ The first time you close the window in a session, a notification balloon appears
 
 ### Fully Quitting
 
-To stop Library of Yore completely, right-click its icon in the system tray and choose **Quit**. Simply closing the window is not enough — that only hides it.
+To stop Library of Yore completely:
+
+- **File → Exit** (or `Ctrl+Q`), or
+- right-click its icon in the system tray and choose **Quit**.
+
+Either one flushes any pending startup-refresh results, stops the API server, closes the library file, and removes the tray icon. Simply closing the window is not enough — that only hides it to the tray.
 
 ### Starting with Windows (Optional)
 
-If you want Library of Yore to launch automatically on login so the extension is always ready:
+On the first normal launch, Library of Yore asks whether it may start automatically when you sign in to Windows. Answering stores your choice, and the app never asks again. You can change it at any time from **File → Start with Windows**.
 
-1. Press `Win + R`, type `shell:startup`, press Enter
-2. Create a shortcut to `LibraryOfYore.exe` in that folder
-
-The app opens its window on each login; close it to send it to the tray.
+When enabled, Windows launches the app at login using your own account's startup settings (the per-user `Run` key), so **no administrator rights are needed**. The app starts hidden in the system tray — it does not open a window at login — so the browser extension is ready to sync as soon as you start reading. Turning the option off removes the startup entry cleanly.
 
 ---
 
@@ -448,7 +450,7 @@ Toggle the checkboxes to show or hide novels in each status:
 - ✅ Dropped
 - ✅ Planned
 
-Only checked statuses are displayed.
+Only checked statuses are displayed. If you uncheck **all** of them the library shows an empty list with a reminder to check at least one status — it does not fall back to showing everything.
 
 ### Sort Options
 
@@ -513,10 +515,12 @@ Open this file in any text editor to edit manually.
 | `theme` | `dark` | Reserved for future use, not currently read (the app always uses its dark theme) |
 | `window_size` | `[1200, 800]` | Reserved for future use — the app now detects your screen size on launch and opens maximized automatically, so this value isn't currently read |
 | `default_sort` | `last_read` | Reserved for future use, not currently read (the app always starts sorted by Last Read) |
+| `startup_prompt_shown` | `false` | Set to `true` once the first-run "Start with Windows?" question has been answered |
+| `run_at_startup` | `false` | Remembers your answer. The real switch is the per-user Windows `Run` key, which **File → Start with Windows** edits |
 
 ### Reset to Defaults
 
-Delete `config.json` and restart the app. It recreates the file with all defaults.
+Delete `config.json` and restart the app. It recreates the file with all defaults. (Your startup choice is also stored in Windows itself; the next launch will simply ask again.)
 
 ---
 
@@ -737,6 +741,7 @@ Update to **v1.3.0** — earlier versions had Qt's `autoDefault` button behaviou
 | `Ctrl + N` | Add new novel |
 | `Ctrl + R` | Refresh library |
 | `Ctrl + E` | Export to Excel |
+| `Ctrl + Q` | Exit the app completely |
 | `F5` | Refresh library |
 | `Enter` (in Add/Edit dialog URL field) | Trigger Fetch Metadata |
 
@@ -772,7 +777,10 @@ Copy the `%LOCALAPPDATA%\LibraryOfYore\` folder for a complete backup (includes 
 Yes. `%LOCALAPPDATA%\LibraryOfYore\config.json` is plain JSON. Edit with any text editor. Delete it to reset all settings to defaults.
 
 **Q: Do I need to keep the app window open for the browser extension to work?**
-No. Close the window and Library of Yore hides to the system tray. The API server stays running and the extension keeps tracking your chapters. Only use **Quit** from the tray menu when you want to fully stop the app.
+No. Close the window and Library of Yore hides to the system tray. The API server stays running and the extension keeps tracking your chapters. Use **File → Exit** (or **Quit** from the tray menu) when you want to fully stop the app.
+
+**Q: How do I make the app start automatically with Windows?**
+On the first launch the app asks. You can also turn it on or off at any time from **File → Start with Windows**. It starts hidden in the tray at login and needs no administrator rights. See [Section 11](#11-system-tray--background-mode).
 
 **Q: Where do I download the browser extension?**
 From the [Releases](https://github.com/NurAbir/Library-of-Yore/releases) page on GitHub. Download `Library.of.Yore.Browser.Extension.zip` from the latest release and follow the instructions in [Section 10](#10-browser-extension).
@@ -795,6 +803,6 @@ Make sure you replaced `scrapers/novelfire.py` with the v1.3.0 version and rebui
 
 **Happy Reading!**
 
-*Library of Yore v2.3.0*
+*Library of Yore v2.3.1*
 
 </div>

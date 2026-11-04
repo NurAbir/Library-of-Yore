@@ -39,6 +39,9 @@ class FreeWebNovelScraper(BaseScraper):
             return f"{m.group(1)}/novel/{m.group(2)}"
         return url
 
+    def canonical_page_url(self, url: str) -> str:
+        return self.canonical_url(url)
+
     def scrape(self, url: str) -> ScraperResult:
         result = ScraperResult(source_name=self.SOURCE_NAME)
         if not self.can_handle(url):
@@ -97,7 +100,7 @@ class FreeWebNovelScraper(BaseScraper):
         result.synopsis = inner.get_text("\n", strip=True) if inner else ""
 
         status = meta("og:novel:status")
-        result.status = self._normalize_status(status) if status else "ongoing"
+        result.status = self._normalize_status(status)
 
         result.genres = [g.strip() for g in meta("og:novel:genre").split(",") if g.strip()][:5]
 
