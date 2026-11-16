@@ -25,7 +25,7 @@ def fixture(name):
     return (FIX / name).read_text(encoding="utf-8")
 
 
-# ── NovelUpdates is gone ─────────────────────────────────────────────────────
+# NovelUpdates is gone
 
 def test_novelupdates_removed():
     assert get_scraper_for_url("https://www.novelupdates.com/series/lord-of-the-mysteries/") is None
@@ -38,7 +38,7 @@ def test_novelupdates_removed():
         assert "novelupdates" not in (root / f).read_text(encoding="utf-8").lower(), f
 
 
-# ── Novelfire / NovelPhoenix ─────────────────────────────────────────────────
+# Novelfire / NovelPhoenix
 
 def test_novelfire_count_gives_latest_and_full_list(monkeypatch):
     html = fixture("novelfire_the_authors_pov.html")
@@ -77,7 +77,7 @@ def test_novelphoenix_uses_same_template_with_novel_path(monkeypatch):
     assert get_scraper_for_url("https://novelphoenix.com/novel/x").__class__ is NovelPhoenixScraper
 
 
-# ── FreeWebNovel ─────────────────────────────────────────────────────────────
+# FreeWebNovel
 
 def test_freewebnovel_meta_and_chapter_total(monkeypatch):
     html = fixture("freewebnovel_lotm.html")
@@ -120,7 +120,7 @@ def test_freewebnovel_canonical_url(url, expected):
     assert FreeWebNovelScraper.canonical_url(url) == expected
 
 
-# ── Wuxiaworld ───────────────────────────────────────────────────────────────
+# Wuxiaworld
 
 def _wx(monkeypatch, slug):
     monkeypatch.setattr(wx_mod, "fetch_html", lambda url, **kw: fixture(f"wuxiaworld_{slug}.html"))
@@ -160,7 +160,7 @@ def test_wuxiaworld_state_parser_ignores_following_scripts():
     assert wx_mod.novel_item(state)["slug"] == "against-the-gods"
 
 
-# ── Shared fetch with browser fallback ───────────────────────────────────────
+# Shared fetch with browser fallback
 
 class _Resp:
     def __init__(self, text, status=200):

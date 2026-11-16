@@ -143,7 +143,7 @@ class AddNovelDialog(QDialog):
         self.url_input.setPlaceholderText("https://www.webnovel.com/book/...  or  https://novelfire.net/novel/...")
         self.url_input.setMinimumHeight(36)
         self.url_input.textChanged.connect(self._on_url_changed)
-        self.url_input.returnPressed.connect(self._start_scrape)   # Enter in URL field → fetch
+        self.url_input.returnPressed.connect(self._start_scrape)   # Enter in URL field -> fetch
         url_layout.addWidget(self.url_input, stretch=3)
 
         self.fetch_btn = QPushButton("Fetch Metadata")
@@ -468,7 +468,7 @@ class AddNovelDialog(QDialog):
             parts.append(result.author)
         if result.latest_chapter:
             parts.append("latest ch " + result.latest_chapter)
-        status_text = "✓  " + "  •  ".join(parts) if parts else "✓  Metadata fetched"
+        status_text = ", ".join(parts) if parts else "Metadata fetched"
         status_text += self._missing_details_note(result, cover_bytes)
         self.fetch_status_label.setText(status_text)
         self.fetch_status_label.setWordWrap(True)

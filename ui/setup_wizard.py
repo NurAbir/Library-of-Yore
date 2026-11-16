@@ -17,7 +17,7 @@ from ui import theme
 
 
 class ImportWorker(QThread):
-    """Background thread that runs the actual MongoDB → local-file import."""
+    """Background thread that runs the actual MongoDB -> local-file import."""
     progress = pyqtSignal(int, int)   # imported, total
     finished = pyqtSignal(int)        # total imported
     error = pyqtSignal(str)
@@ -99,7 +99,7 @@ class ImportWizard(QDialog):
 
         btn_layout.addStretch()
 
-        self.import_btn = QPushButton("Import Now →")
+        self.import_btn = QPushButton("Import Now")
         self.import_btn.setObjectName("primaryButton")
         self.import_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.import_btn.setDefault(True)
@@ -127,7 +127,7 @@ class ImportWizard(QDialog):
         self.status_label.setText(f"Imported {imported} of {total}…")
 
     def _on_finished(self, count: int):
-        self.status_label.setText(f"✓ Imported {count} novel(s) successfully.")
+        self.status_label.setText(f"Imported {count} novel(s) successfully.")
         self.status_label.setStyleSheet(f"color: {theme.SUCCESS}; font-weight: 600;")
         QMessageBox.information(
             self, "Import Complete",
@@ -138,7 +138,7 @@ class ImportWizard(QDialog):
         self.accept()
 
     def _on_error(self, msg: str):
-        self.status_label.setText(f"✕ Import failed: {msg}")
+        self.status_label.setText(f"Import failed: {msg}")
         self.status_label.setStyleSheet(f"color: {theme.DANGER}; font-weight: 600;")
         self.import_btn.setEnabled(True)
         self.skip_btn.setEnabled(True)

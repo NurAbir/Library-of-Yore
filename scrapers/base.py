@@ -95,16 +95,9 @@ class BaseScraper:
 
     def _extract_chapter_number(self, text: str) -> Optional[str]:
         """Best-effort latest chapter from a page's flattened text, for sites
-        without a readable chapter list. Returns a canonical chapter string.
-
-        Rewritten in v2.1.0. The old version kept decimals out ("45.5" became
-        45), matched any word starting with "ch" after a number ("2024 chess"),
-        and as a last resort took the biggest number anywhere on the page.
-        Now, in order:
-          1. an explicit "Latest ... Chapter N" (decimals kept);
-          2. an "N Chapters" count (plural, whole word);
-          3. nothing, rather than a guess.
-        """
+        without a readable chapter list. In order: an explicit "Latest ...
+        Chapter N" (decimals kept), then an "N Chapters" count, else nothing
+        rather than a guess."""
         if not text:
             return None
         m = _LATEST_RE.search(text)
@@ -135,7 +128,7 @@ class BaseScraper:
         return ""
 
 
-# ── Fetching, with a real-browser fallback ───────────────────────────────────
+# Fetching, with a real-browser fallback
 #
 # Every scraper fetches through these helpers (since v2.2.0). They try a plain
 # HTTP request first (fast, no browser needed) and, if the site blocks it or

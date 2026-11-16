@@ -2,11 +2,11 @@
 ; Requires Inno Setup 6.x: https://jrsoftware.org/isdl.php
 
 #define MyAppName     "Library of Yore"
-#define MyAppVersion  "2.3.1"
+#define MyAppVersion  "2.3.2"
 #define MyAppPublisher "LibraryOfYore"
 #define MyAppExeName  "LibraryOfYore.exe"
 
-; ── Locating the build output ────────────────────────────────────────────
+; -- Locating the build output --------------------------------------------
 ; By default this script looks for either build layout, in this order:
 ;   1. Folder build   (build_release.bat / python build.py --folder):
 ;        dist\LibraryOfYore\LibraryOfYore.exe  + supporting files

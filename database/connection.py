@@ -1,17 +1,11 @@
 """Local JSON-file storage management (replaces MongoDB as of v2.0).
 
-Novels are stored in one TinyDB-backed JSON file (config.LIBRARY_FILE) inside
-the app's data directory instead of a MongoDB server. TinyDB gives the same
-"insert/query a dict" ergonomics MongoDB did, just without anything to
-install, start, or keep running in the background.
-
-Since v2.0.2 the file is written atomically (write a temp file, then swap it
-into place) instead of through TinyDB's stock JSONStorage. The stock storage
-keeps one file handle open and shares it between every thread; a read from
-the browser-extension API thread landing in the middle of a UI-thread write
-moved that shared handle's position and could leave the file truncated or
-with stale bytes at the end (invalid JSON). Every read and write now also goes
-through one shared re-entrant lock (see get_lock()).
+Novels live in one TinyDB-backed JSON file (config.LIBRARY_FILE) in the app's
+data directory, so there is no server to install or keep running. Since v2.0.2 the
+file is written atomically (temp file, then swap) rather than through TinyDB's
+stock JSONStorage, whose single shared file handle could be corrupted when a read
+from the extension API thread landed inside a UI-thread write. Every read and
+write also goes through one shared re-entrant lock (see get_lock()).
 """
 import datetime
 import json

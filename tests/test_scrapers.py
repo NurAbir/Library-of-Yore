@@ -50,7 +50,7 @@ def test_latest_from_labels_ignores_page_order():
     assert latest_from_labels(["Prologue"]) is None
 
 
-# ── Flame Comics ──────────────────────────────────────────────────────────────
+# Flame Comics
 
 def _page(kind, info, chapters_json, og_image=True):
     key = "novels" if kind == "novel" else "series"

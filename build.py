@@ -168,6 +168,6 @@ if __name__ == "__main__":
         clean()
 
     if args.folder:
-        build_folder()   # --folder → folder build (was inverted before)
+        build_folder()   # --folder -> folder build (was inverted before)
     else:
-        build()          # default → single-file .exe
+        build()          # default -> single-file .exe

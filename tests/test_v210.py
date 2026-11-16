@@ -14,7 +14,7 @@ from database.models import Novel, NovelRepository, apply_scrape_result
 from scrapers.base import ScraperResult
 
 
-# ── Migration ────────────────────────────────────────────────────────────────
+# Migration
 
 def test_old_record_zero_means_not_started():
     old = {"_id": "a", "title": "Old", "progress": {"current_chapter": 0, "total_chapters": 0, "status": "ongoing"}}
@@ -49,7 +49,7 @@ def test_legacy_mongo_style_construction_normalizes():
     assert n.current_chapter == "45"
 
 
-# ── Refresh application and batch save ───────────────────────────────────────
+# Refresh application and batch save
 
 def _flame_result(**kw):
     r = ScraperResult(source_name="flamecomics", success=True, title="ORV", status="ongoing",
@@ -86,7 +86,7 @@ def test_update_many_single_write():
     assert all(repo.get_by_id(i).latest_chapter == "50" for i in ids)
 
 
-# ── API ──────────────────────────────────────────────────────────────────────
+# API
 
 @pytest.fixture(scope="module")
 def server():

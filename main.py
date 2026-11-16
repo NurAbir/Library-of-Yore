@@ -80,7 +80,7 @@ def main():
     app.setApplicationVersion(APP_VERSION)
     app.setOrganizationName("LibraryOfYore")
     # The app lives in the tray, so closing the last window must not end the
-    # process. Quitting is explicit: File → Exit, the tray's Quit item, or a
+    # process. Quitting is explicit: File -> Exit, the tray's Quit item, or a
     # window close when no tray is available.
     app.setQuitOnLastWindowClosed(False)
 

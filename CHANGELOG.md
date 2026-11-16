@@ -2,16 +2,28 @@
 
 All notable changes to Library of Yore.
 
+## [2.3.2] - 2026-11-16
+
+A MangaFire correctness and cleanup release.
+
+### Fixed
+- **MangaFire: a lone "read first chapter" button no longer hides another language's real chapter list.** The scraper preferred the English list even when English held only the single first-chapter button while another language held the full list, so the latest chapter came back unknown (or from the site's prose). A language with a real list is now preferred.
+- **The extension reads the series title correctly on MangaFire's current reader pages.** The tab title is "Title - Chapter N"; the detector only understood "Title Manga, Chapter N" and fell back to the URL slug, so the popup (and the title fallback) showed the slug instead of the series name.
+
+### Changed
+- Verified the MangaFire scraper against a real, rendered series page: the title, author, cover, synopsis and latest chapter are all read correctly (genres keep the app-wide five-item cap).
+- Version bumped to 2.3.2 everywhere (app, extension manifest, installer, README, manual and changelog).
+
 ## [2.3.1] - 2026-11-04
 
 A correctness and reliability release: quitting, startup with Windows, duplicate imports, locked chapters, URL matching, filtering and cover files.
 
 ### Added
-- **Start with Windows (opt-in).** On the first normal launch the app asks whether it may start automatically when you sign in. The answer is remembered and is also available any time under **File → Start with Windows**. It uses the per-user `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` key, so no administrator rights are needed. At login the app starts hidden in the system tray.
+- **Start with Windows (opt-in).** On the first normal launch the app asks whether it may start automatically when you sign in. The answer is remembered and is also available any time under **File -> Start with Windows**. It uses the per-user `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` key, so no administrator rights are needed. At login the app starts hidden in the system tray.
 - **One running copy.** Launching the app again now brings the existing hidden window back instead of opening a second copy that shares the same library file and fights over port 7337.
 
 ### Fixed
-- **File → Exit now exits.** It used to call `close()`, which the close-to-tray handler turned into a hide. Exit (and the tray's Quit) now flush pending refresh results, stop the extension API, close the library and remove the tray icon. Closing the window still hides to an active tray, as before.
+- **File -> Exit now exits.** It used to call `close()`, which the close-to-tray handler turned into a hide. Exit (and the tray's Quit) now flush pending refresh results, stop the extension API, close the library and remove the tray icon. Closing the window still hides to an active tray, as before.
 - **Closing with no usable system tray** now quits instead of leaving an invisible process with no way back.
 - **A port-7337 collision no longer crashes startup.** If another copy or program owns the port, the app warns and keeps working without extension sync.
 - **Re-importing a MongoDB library no longer duplicates every novel.** Inserts are idempotent by id, and duplicate rows left by older builds are collapsed when that id is saved again.
@@ -22,7 +34,7 @@ A correctness and reliability release: quitting, startup with Windows, duplicate
 - **The extension's Sync button is disabled after a successful sync** instead of remaining clickable and re-posting the same update.
 - **Cover files match their content.** Covers are re-encoded as JPEG, or kept with their real `.png`/`.webp`/`.gif` extension when they can't be decoded, instead of every file being named `.jpg`.
 - Scraper detection matches the URL's hostname, so `https://novelfire.net.evil.example/...` is no longer treated as Novelfire.
-- **Title sorting is A → Z** (it was always descending, so Title sorted Z → A).
+- **Title sorting is A -> Z** (it was always descending, so Title sorted Z -> A).
 - **`config.json` is written atomically**, so a crash during a settings save can't leave a truncated file.
 - **MangaFire's readiness check** no longer relies on the meaningless substring `"hap"` (part of the word "chapter"); it waits for a real chapter list.
 - **`last_scraped` is saved even when a refresh changes nothing visible**, so "last checked" stays accurate.
@@ -90,7 +102,7 @@ Decimal chapters, a real "Not started" state, progress based on each site's actu
 - **Flame Comics (flamecomics.xyz), novels and manga.** Paste a `/novel/N` or `/series/N` link (a chapter link works too). The scraper reads the page's embedded data, which includes every chapter, locked ones too, instead of the page text: flattened text runs a chapter number into its price ("Chapter 621" + "50 embers" reads as "Chapter 62150 embers").
 - **Browser extension support for Flame Comics.** Flame's chapter links carry no chapter number, so the number comes from the page title. Flame also changes chapters without reloading the page (Previous/Next), which the extension previously couldn't see at all: it now watches for in-page chapter changes on every supported site.
 - **Novel / Manga type** on every entry (set automatically for Flame, editable in the dialog), shown as a MANGA tag on cards. Title-based matching only considers entries of the same type, so a manhwa chapter never updates the novel of the same name.
-- **Chapter lists.** Where a site provides its full chapter list (Flame Comics), it's stored compactly as ranges (`"0.01,1-755"`, not 756 numbers) and progress follows it: +1 goes 2 → 2.5 → 3 and skips gaps; "chapters behind" and % count real entries, so chapter 0, decimals, missing numbers and lists that start part-way are all handled.
+- **Chapter lists.** Where a site provides its full chapter list (Flame Comics), it's stored compactly as ranges (`"0.01,1-755"`, not 756 numbers) and progress follows it: +1 goes 2 -> 2.5 -> 3 and skips gaps; "chapters behind" and % count real entries, so chapter 0, decimals, missing numbers and lists that start part-way are all handled.
 - **Locked chapters** (Flame's paid chapters) are counted: still "behind", with the locked count shown separately (card tooltip, Excel export).
 - **Excel export** columns: Type, Latest Chapter, Chapters Behind, Locked Behind.
 - `utils/chapters.py`: one place for chapter parsing, range storage and progress, with tests.
@@ -109,7 +121,7 @@ Decimal chapters, a real "Not started" state, progress based on each site's actu
 - **Decimal chapters were garbled or lost.** Qt signals typed as int turn any float (even 2.0) into a garbage number without an error; chapter signals now carry strings or whole scrape results. The extension's `parseInt` turned "2.5" into 2.
 - **Shared chapter parser** (used by the five text-based scrapers): "Chapter 45.5" became 45; any word starting with "ch" after a number matched ("Reads 2024 chess" gave 2024); the first match on the page won even when it was a count or someone else's chapter; and as a last resort it took the biggest number anywhere on the page. It now keeps decimals, prefers an explicit "Latest Chapter N", accepts only whole-word "N Chapters", reads chapter-link labels by highest number regardless of page order, ignores Prologue/Extra/Epilogue labels, and returns nothing rather than a guess.
 - NovelUpdates' fallback took the first number in any info row mentioning "chapter".
-- **Card layout:** the status row was squeezed until badges were clipped ("ONGOING" showed as "NGOIN") and long titles ran into the cover. Cards are now a little taller, titles take exactly two lines (ending in "…" if longer; the full title is in the tooltip), the status badge is never squeezed, and the chapter text shortens itself ("Ch 1234.5 / 2100.5" → "1234.5 / 2100.5") when space is tight. The MANGA tag moved onto the cover's top-left corner, styled neutrally so it reads on any cover.
+- **Card layout:** the status row was squeezed until badges were clipped ("ONGOING" showed as "NGOIN") and long titles ran into the cover. Cards are now a little taller, titles take exactly two lines (ending in "…" if longer; the full title is in the tooltip), the status badge is never squeezed, and the chapter text shortens itself ("Ch 1234.5 / 2100.5" -> "1234.5 / 2100.5") when space is tight. The MANGA tag moved onto the cover's top-left corner, styled neutrally so it reads on any cover.
 - **Status badge colors were wrong.** Qt reads 8-digit hex colors as #AARRGGBB, not CSS's #RRGGBBAA, so tinted colors built by appending an alpha came out as different colors (the blue Ongoing badge rendered olive green). All tinted colors now use rgba().
 
 ## [2.0.2] - 2026-09-28
@@ -120,7 +132,7 @@ Bug-fix release. No new features and no change to the library file format beyond
 - **Library file could be corrupted by a background read.** The browser-extension API thread read `library.json` without the lock, through the same open file handle the app writes with. A read landing mid-save moved that shared handle and could leave the file truncated or with stale bytes at the end (invalid JSON), which the startup repair then "fixed" by rolling back to `library.json.bak`. `library.json` is now written atomically (temp file, then swapped into place), no file handle is shared, and every read and write goes through one lock. A regression test reproduces the old failure.
 - **Editing a novel wiped fields the form doesn't show.** Every save from the Edit dialog reset **Date Added** to now and **Read Count** to 0, and dropped the cover's source URL and scrape info. Edits now change only the fields on the form. The cover file is only rewritten when you actually change the cover, and **Clear Cover** now deletes the old file instead of leaving it behind.
 - **"Last Read" was set by every save**, including the startup auto-refresh and plain edits, so sorting by Last Read was scrambled on every launch. It now changes only on real reading progress: **+1**, the browser extension, or changing Current Chapter in the Edit dialog.
-- **Auto-refresh overwrote your own status.** A novel you marked **Dropped** or **Planned** flipped back to the site's status (e.g. Ongoing) on the next launch. The site's status is now stored separately (`site_status`); your Dropped/Planned is never overwritten, while other statuses still follow the site (e.g. Ongoing → Completed) as before.
+- **Auto-refresh overwrote your own status.** A novel you marked **Dropped** or **Planned** flipped back to the site's status (e.g. Ongoing) on the next launch. The site's status is now stored separately (`site_status`); your Dropped/Planned is never overwritten, while other statuses still follow the site (e.g. Ongoing -> Completed) as before.
 - **Wrong novel matched from a chapter URL.** The extension's URL matching compared raw string prefixes and looked for the stored slug anywhere in the path, so `/series/1` matched `/series/12/…`, and a slug like `2` matched any chapter URL containing the digit 2. Matching is now by whole path segments; the slug fallback ignores numeric ids and hex chapter tokens.
 - **Title fallback was too loose.** It searched author and notes as well as titles and took whichever hit was read most recently. It now compares titles only, stays on the same site, and refuses to guess when two entries share a title (e.g. a novel and its manhwa).
 - **Local API origin check.** `http://localhost.<anything>` passed the check meant for `http://localhost`. Origins are now matched exactly (extension origins, `localhost`, `127.0.0.1`), and progress updates must be sent as JSON, which stops an ordinary web page from firing a silent cross-site update.
@@ -151,7 +163,7 @@ Bug-fix release. No new features and no change to the library file format beyond
 ### Added
 - **Local JSON storage.** Novels now live in `library.json` inside the app's data folder (`%LOCALAPPDATA%\LibraryOfYore\`), backed by TinyDB — same "insert/query a dict" model as before, just without a server to install or keep running. A `library.json.bak` snapshot is written before every save as a crash safety net.
 - **Local cover images.** Cover files are now saved directly under a `covers\` folder next to `library.json`, instead of MongoDB's GridFS.
-- **One-time MongoDB import.** On first launch, if a pre-2.0 MongoDB library is detected on the machine, an import wizard offers to copy every novel and cover image into the new local store before you continue — skippable, and safe to leave MongoDB uninstalled afterward. Also available any time from **File → Import Existing MongoDB Library…**.
+- **One-time MongoDB import.** On first launch, if a pre-2.0 MongoDB library is detected on the machine, an import wizard offers to copy every novel and cover image into the new local store before you continue — skippable, and safe to leave MongoDB uninstalled afterward. Also available any time from **File -> Import Existing MongoDB Library…**.
 - **New app logo/icon** — `assets/logo.png` and `assets/logo.ico` replaced with a new circular emblem (open book + archway design); the `.ico` was regenerated at the same six sizes as before (16/32/48/64/128/256) so the taskbar, window, and installer icons stay crisp.
 
 ### Changed
@@ -169,13 +181,13 @@ Bug-fix release. No new features and no change to the library file format beyond
 ## [1.5.0] - 2026-07-20
 
 ### Added
-- **Screen-aware launch** — the app now detects the primary screen's available geometry on startup and opens maximized (windowed full-screen) to fill it, instead of a hardcoded 1300×850 window
+- **Screen-aware launch** — the app now detects the primary screen's available geometry on startup and opens maximized (windowed full-screen) to fill it, instead of a hardcoded 1300x850 window
 - **Responsive grid** — the novel grid's column count is now computed from the actual scroll-viewport width and recalculated (debounced) on window resize, so the layout adapts whether you're on a small laptop screen or an ultrawide monitor
 - **`ui/theme.py`** — a centralized design-system module (palette, radii, typography, shared QSS fragments) used by the main window, novel cards, Add Novel dialog, and setup wizard, so all four stay visually consistent going forward
 - Refined dark theme: antique-gold accent on a charcoal-slate palette, drop-shadowed novel cards, a branded sidebar header, and a primary-styled "+ Add Novel" button
 
 ### Changed
-- **List view removed** — the app now only offers the cover grid; the Grid/List toggle button and the `View → Grid View / List View` menu items have been removed
+- **List view removed** — the app now only offers the cover grid; the Grid/List toggle button and the `View -> Grid View / List View` menu items have been removed
 - First-run **setup wizard** now uses the shared dark theme (previously it had no styling at all and looked out of place next to the rest of the app)
 - App version is now read from `config.APP_VERSION` everywhere (window title/about dialog, `main.py`, browser extension manifest, installer) instead of being hardcoded separately in each place
 
@@ -206,11 +218,11 @@ Bug-fix release. No new features and no change to the library file format beyond
 
 ### Added
 - **Auto-refresh on startup** — all Novelfire novels are silently re-scraped in a background thread when the app opens; latest chapter count, status, and synopsis are written to the database and reflected on cards immediately, with no UI blocking
-- **✦ Updated badge** — cards that received new data during auto-refresh display a gold badge in the top-right corner of their cover image for the duration of the session
+- **Updated badge** — cards that received new data during auto-refresh display a gold badge in the top-right corner of their cover image for the duration of the session
 - **`NovelRefreshWorker` (QThread)** — dedicated background worker that drives the startup refresh; emits `novel_updated(novel_id, total_chapters, status, synopsis)` per novel and `finished(count)` when done; status bar shows progress and completion message
 - **`update_status()` on `NovelCard`** — updates the status badge label and colour in place without rebuilding the card
 - **`update_latest_chapter()` on `NovelCard`** — updates total chapters and recalculates the progress bar percentage live
-- **`mark_updated()` on `NovelCard`** — shows the gold ✦ Updated badge overlay
+- **`mark_updated()` on `NovelCard`** — shows the gold Updated badge overlay
 
 ### Fixed
 - **Synopsis shows "Summary..." prefix** — `novelfire.py` now strips any leading `Summary`, `Description`, or `Synopsis` label (with or without a colon) from the scraped synopsis text

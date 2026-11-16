@@ -1,6 +1,6 @@
 # Library of Yore — User Manual
 
-**Version 2.3.1**
+**Version 2.3.2**
 
 A complete guide to installing, using, and troubleshooting Library of Yore, your personal desktop tracker for web novels and manga.
 
@@ -53,12 +53,12 @@ Library of Yore stores your entire library locally on your machine — no databa
 
 ```
 %LOCALAPPDATA%\LibraryOfYore\
-├── library.json        ← all novel metadata and reading history
-├── library.json.bak     ← automatic snapshot written before every save
-├── backups\             ← one dated snapshot per day, newest 7 kept (since 2.0.2)
-├── covers\              ← one cover image file per novel
-├── config.json          ← app settings (see Section 14)
-└── exports\             ← Excel exports land here by default
+|-- library.json        <- all novel metadata and reading history
+|-- library.json.bak     <- automatic snapshot written before every save
+|-- backups\             <- one dated snapshot per day, newest 7 kept (since 2.0.2)
+|-- covers\              <- one cover image file per novel
+|-- config.json          <- app settings (see Section 14)
+`-- exports\             <- Excel exports land here by default
 ```
 
 ### Upgrading from Before 2.0?
@@ -103,10 +103,10 @@ If no local library exists yet, the app briefly checks `localhost:27017` for a p
 
 | Button | What It Does |
 |--------|--------------|
-| **Import Now →** | Copies every novel and cover image from MongoDB into your new local library, with progress shown live |
+| **Import Now ->** | Copies every novel and cover image from MongoDB into your new local library, with progress shown live |
 | **Skip — Start Fresh** | Closes the wizard and starts with an empty local library instead |
 
-This check only happens once — after your local library exists (even if you skipped), the app never probes MongoDB automatically again. If you skipped by mistake and haven't added any novels yet, you can trigger the same import at any time from **File → Import Existing MongoDB Library…**.
+This check only happens once — after your local library exists (even if you skipped), the app never probes MongoDB automatically again. If you skipped by mistake and haven't added any novels yet, you can trigger the same import at any time from **File -> Import Existing MongoDB Library…**.
 
 ---
 
@@ -150,7 +150,7 @@ This is the fastest way to add a novel with full metadata.
 
 > **Flame Comics:** pasting a chapter link (e.g. `https://flamecomics.xyz/novel/8/f48067c3fe28e0a0`) works too; it's turned into the title's main page. Flame hosts some titles as both a novel and a manhwa: add each as its own entry. Manga are tracked for progress only; pages aren't downloaded.
 
-> **MangaFire:** paste the series page (`https://mangafire.to/title/{id}-{slug}`). Older links (`/manga/{slug}.{id}` or a `/read/...` chapter link) still work, because the site redirects them to the series page. Each series has a short **id** (such as `zl363`) that never changes, and the app recognises a series by it, so your saved entry still matches if MangaFire changes the slug. MangaFire keeps a separate chapter list per language: the app uses English, or the language in the link you pasted. MangaFire is loaded in a real browser, so **Microsoft Edge or Google Chrome must be installed** and **Fetch Metadata** can take about 20 seconds; if the site shows a verification page to automated browsers, the fetch reports an error (you can still save the entry yourself, and the extension tracks progress). If the cover, author, genres or latest chapter come back empty, the page the app received is saved at `%LOCALAPPDATA%\LibraryOfYore\logs\mangafire_last_page.html`; send that file along with the link so it can be fixed. The newest chapter is recorded, but not the full list, so **+1** moves to the next whole chapter and the site's Completed/Releasing status isn't read (set the status yourself). Volumes aren't tracked.
+> **MangaFire:** paste the series page (`https://mangafire.to/title/{id}-{slug}`). Older links (`/manga/{slug}.{id}` or a `/read/...` chapter link) still work, because the site redirects them to the series page. Each series has a short **id** (such as `zl363`) that never changes, and the app recognises a series by it, so your saved entry still matches if MangaFire changes the slug. MangaFire keeps a separate chapter list per language: the app uses the language in the link you pasted (or English), and skips a language that shows only a single chapter in favour of one with a full list. MangaFire is loaded in a real browser, so **Microsoft Edge or Google Chrome must be installed** and **Fetch Metadata** can take about 20 seconds; if the site shows a verification page to automated browsers, the fetch reports an error (you can still save the entry yourself, and the extension tracks progress). If the cover, author, genres or latest chapter come back empty, the page the app received is saved at `%LOCALAPPDATA%\LibraryOfYore\logs\mangafire_last_page.html`; send that file along with the link so it can be fixed. The newest chapter is recorded, but not the full list, so **+1** moves to the next whole chapter and the site's Completed/Releasing status isn't read (set the status yourself). Volumes aren't tracked.
 
 ### Method 2 — Manual Entry
 
@@ -204,7 +204,7 @@ The main window has three sections.
 | **+ Add Novel** | Open the Add Novel dialog |
 | **Export Excel** | Save your full library to a `.xlsx` spreadsheet |
 
-> To manually reload novels from the database, use **View → Refresh** in the menu bar.
+> To manually reload novels from the database, use **View -> Refresh** in the menu bar.
 
 ### Novel Cards
 
@@ -213,7 +213,7 @@ The library is always shown as a responsive cover grid — the number of columns
 Each novel card shows:
 
 - **Cover image** (or a "No Cover" placeholder)
-- **✦ Updated badge** — a small gold badge in the top-right corner of the cover, visible on cards that received new data during the current session's auto-refresh
+- **Updated badge** — a small gold badge in the top-right corner of the cover, visible on cards that received new data during the current session's auto-refresh
 - **Title**
 - **Status badge** — colour coded:
 
@@ -243,7 +243,7 @@ Each novel card shows:
 
 ## 7. Editing a Novel
 
-1. Left-click any card, or right-click → **Edit**
+1. Left-click any card, or right-click -> **Edit**
 2. The Edit dialog opens pre-filled with all current data
 3. Change whatever you need:
    - Chapter progress
@@ -254,7 +254,7 @@ Each novel card shows:
 
 Saving an edit changes only the fields shown in the dialog. **Date Added**, **Read Count** and the cover are kept as they were unless you change them, and **Last Read** only moves if you changed **Current Chapter**.
 
-To delete a novel: right-click its card → **Delete**. This also removes its cover image file from the `covers\` folder.
+To delete a novel: right-click its card -> **Delete**. This also removes its cover image file from the `covers\` folder.
 
 ---
 
@@ -263,10 +263,10 @@ To delete a novel: right-click its card → **Delete**. This also removes its co
 ### Updating Your Chapter
 
 **Quick (one click):** Click the **+1** button on any card. It records the *next* chapter and updates the last-read timestamp:
-- When the site's chapter list is known (every supported site except MangaFire, which stores only the newest chapter), +1 follows that list: 2 → 2.5 → 3, skips numbers the site doesn't have, and from **Not started** goes to the first chapter the site lists (0 or 0.01 if it has one)
-- Otherwise it goes to the next whole chapter (45.5 → 46), and from Not started to chapter 1
+- When the site's chapter list is known (every supported site except MangaFire, which stores only the newest chapter), +1 follows that list: 2 -> 2.5 -> 3, skips numbers the site doesn't have, and from **Not started** goes to the first chapter the site lists (0 or 0.01 if it has one)
+- Otherwise it goes to the next whole chapter (45.5 -> 46), and from Not started to chapter 1
 
-**Precise:** Open the novel → change the **Current Chapter** number → Save. Decimals are allowed; clear the field to mark the novel as not started.
+**Precise:** Open the novel -> change the **Current Chapter** number -> Save. Decimals are allowed; clear the field to mark the novel as not started.
 
 **Automatic (browser extension):** If you have the browser extension installed, your chapter updates as you read in the browser — see [Section 10](#10-browser-extension).
 
@@ -274,7 +274,7 @@ To delete a novel: right-click its card → **Delete**. This also removes its co
 
 | Indicator | Meaning |
 |-----------|---------|
-| Progress bar | With a chapter list: chapters read ÷ chapters the site lists (so gaps, chapter 0 and decimals count correctly). Without one: current ÷ latest |
+| Progress bar | With a chapter list: chapters read / chapters the site lists (so gaps, chapter 0 and decimals count correctly). Without one: current / latest |
 | Chapters behind | How many chapters are left (card tooltip, Excel export) |
 | Locked | How many of the chapters left are locked/paid on the site (Flame Comics); they still count as "behind" |
 | Up to date | Nothing left to read: the chapter label turns green |
@@ -300,16 +300,16 @@ Every time Library of Yore opens, it silently re-scrapes your **Novelfire, Novel
 
 | Field | Updated? |
 |-------|---------|
-| Latest chapter | ✅ Yes: the highest chapter the site lists |
-| Chapter list and locked chapters | ✅ Yes (every supported site; see the README's Supported Sites table for how) |
-| Status | ✅ Yes: picks up Ongoing → Completed transitions automatically. A novel you marked **Dropped** or **Planned** keeps your status |
-| Synopsis | ✅ Yes — pulls the current synopsis text from the novel page |
-| Cover image | ❌ No — covers are not re-downloaded on auto-refresh |
-| Your current chapter | ❌ No — your reading progress is never overwritten |
+| Latest chapter | Yes: the highest chapter the site lists |
+| Chapter list and locked chapters | Yes (every supported site; see the README's Supported Sites table for how) |
+| Status | Yes: picks up Ongoing -> Completed transitions automatically. A novel you marked **Dropped** or **Planned** keeps your status |
+| Synopsis | Yes — pulls the current synopsis text from the novel page |
+| Cover image | No — covers are not re-downloaded on auto-refresh |
+| Your current chapter | No — your reading progress is never overwritten |
 
-### The ✦ Updated Badge
+### The Updated Badge
 
-Any card that received a change during auto-refresh shows a small gold **✦ Updated** badge in the top-right corner of its cover image. The badge stays visible for the rest of the session and disappears the next time the library is fully reloaded.
+Any card that received a change during auto-refresh shows a small gold **Updated** badge in the top-right corner of its cover image. The badge stays visible for the rest of the session and disappears the next time the library is fully reloaded.
 
 ### Status Bar
 
@@ -321,7 +321,7 @@ When complete, it changes to:
 
 > *Auto-refresh complete — 3 novel(s) checked.*
 
-Cards that changed show the ✦ Updated badge. All changes are saved together once the refresh finishes.
+Cards that changed show the Updated badge. All changes are saved together once the refresh finishes.
 
 ### Notes
 
@@ -385,8 +385,8 @@ Click the extension icon in your browser toolbar. The popup shows:
 
 | Status | Meaning |
 |--------|---------|
-| 🟢 Green dot | Library of Yore is running and the API server is reachable |
-| 🔴 Red dot, "App not running" | The app is not running. Launch Library of Yore first |
+| Green dot | Library of Yore is running and the API server is reachable |
+| Red dot, "App not running" | The app is not running. Launch Library of Yore first |
 
 ### Matching Novels
 
@@ -402,7 +402,7 @@ Library of Yore is designed to run quietly in the background so the browser exte
 
 ### Hiding to the Tray
 
-When you click the **✕ close button** on the main window, the app does **not** quit. Instead it hides to the Windows system tray (bottom-right corner of the taskbar, near the clock). The API server keeps running, so the browser extension continues working normally.
+When you click the **close button** on the main window, the app does **not** quit. Instead it hides to the Windows system tray (bottom-right corner of the taskbar, near the clock). The API server keeps running, so the browser extension continues working normally.
 
 The first time you close the window in a session, a notification balloon appears:
 
@@ -414,21 +414,21 @@ The first time you close the window in a session, a notification balloon appears
 |--------|--------|
 | **Single-click** the tray icon | Reopens the main window |
 | **Double-click** the tray icon | Reopens the main window |
-| **Right-click → Open Library** | Reopens the main window |
-| **Right-click → Quit** | Fully exits the app, stops the API server, and flushes the local library file |
+| **Right-click -> Open Library** | Reopens the main window |
+| **Right-click -> Quit** | Fully exits the app, stops the API server, and flushes the local library file |
 
 ### Fully Quitting
 
 To stop Library of Yore completely:
 
-- **File → Exit** (or `Ctrl+Q`), or
+- **File -> Exit** (or `Ctrl+Q`), or
 - right-click its icon in the system tray and choose **Quit**.
 
 Either one flushes any pending startup-refresh results, stops the API server, closes the library file, and removes the tray icon. Simply closing the window is not enough — that only hides it to the tray.
 
 ### Starting with Windows (Optional)
 
-On the first normal launch, Library of Yore asks whether it may start automatically when you sign in to Windows. Answering stores your choice, and the app never asks again. You can change it at any time from **File → Start with Windows**.
+On the first normal launch, Library of Yore asks whether it may start automatically when you sign in to Windows. Answering stores your choice, and the app never asks again. You can change it at any time from **File -> Start with Windows**.
 
 When enabled, Windows launches the app at login using your own account's startup settings (the per-user `Run` key), so **no administrator rights are needed**. The app starts hidden in the system tray — it does not open a window at login — so the browser extension is ready to sync as soon as you start reading. Turning the option off removes the startup entry cleanly.
 
@@ -444,11 +444,11 @@ Type in the search box (left sidebar). Matches novels where the search text appe
 
 Toggle the checkboxes to show or hide novels in each status:
 
-- ✅ Ongoing
-- ✅ Completed
-- ✅ Hiatus
-- ✅ Dropped
-- ✅ Planned
+- Ongoing
+- Completed
+- Hiatus
+- Dropped
+- Planned
 
 Only checked statuses are displayed. If you uncheck **all** of them the library shows an empty list with a reminder to check at least one status — it does not fall back to showing everything.
 
@@ -457,7 +457,7 @@ Only checked statuses are displayed. If you uncheck **all** of them the library 
 | Option | Order |
 |--------|-------|
 | **Last Read** | Most recently updated first |
-| **Title** | A → Z alphabetical |
+| **Title** | A -> Z alphabetical |
 | **Rating** | Highest rated first |
 | **Date Added** | Newest additions first |
 | **Progress %** | Most complete first |
@@ -516,7 +516,7 @@ Open this file in any text editor to edit manually.
 | `window_size` | `[1200, 800]` | Reserved for future use — the app now detects your screen size on launch and opens maximized automatically, so this value isn't currently read |
 | `default_sort` | `last_read` | Reserved for future use, not currently read (the app always starts sorted by Last Read) |
 | `startup_prompt_shown` | `false` | Set to `true` once the first-run "Start with Windows?" question has been answered |
-| `run_at_startup` | `false` | Remembers your answer. The real switch is the per-user Windows `Run` key, which **File → Start with Windows** edits |
+| `run_at_startup` | `false` | Remembers your answer. The real switch is the per-user Windows `Run` key, which **File -> Start with Windows** edits |
 
 ### Reset to Defaults
 
@@ -549,7 +549,7 @@ Copy that same folder back to `%LOCALAPPDATA%\LibraryOfYore\` — on the same PC
 
 ### Upgrading from a Pre-2.0 (MongoDB) Install
 
-You don't need to do this manually — see [Section 4](#4-first-launch--import-wizard). If you skipped the import and want to run it again, use **File → Import Existing MongoDB Library…** from the menu bar (as long as MongoDB is still installed and running).
+You don't need to do this manually — see [Section 4](#4-first-launch--import-wizard). If you skipped the import and want to run it again, use **File -> Import Existing MongoDB Library…** from the menu bar (as long as MongoDB is still installed and running).
 
 ### Lightweight Backup (Excel)
 
@@ -595,7 +595,7 @@ python main.py
 
 1. Create `scrapers/mysite.py` inheriting from `BaseScraper`
 2. Implement `SOURCE_NAME`, `DOMAIN_PATTERNS`, and `scrape(url)`
-3. Register it in `scrapers/__init__.py` → `get_scraper_for_url()`
+3. Register it in `scrapers/__init__.py` -> `get_scraper_for_url()`
 4. Add `--hidden-import scrapers.mysite` in **all three** build paths — `build.bat`, `build_release.bat`, and `build.py`'s `COMMON_HIDDEN_IMPORTS` list. These are maintained separately and drift easily; a scraper missing from just one still works when run from source but silently breaks in that one built `.exe`
 5. Set `result.latest_chapter` as a chapter string (use `utils.chapters.parse_chapter`). If the site shows its full chapter list, also fill `result.chapter_list` (and `locked_list`) so progress follows the real list; see `scrapers/flamecomics.py`. For a manga site whose list can't be trusted, `scrapers/mangafire.py` shows the simpler approach (newest chapter only)
 6. If the site should also support the browser extension's live chapter tracking, add its domain to `Library of Yore Browser Extension/manifest.json` (content-script matches), a detector function in `content.js`, and the domain to `background.js`'s `novelHosts` list
@@ -630,11 +630,11 @@ Since v2.0, Library of Yore checks `library.json` on every startup and repairs i
 2. **Genuinely unreadable main file, but the automatic backup is fine**: restored from `library.json.bak` (a snapshot taken before every save). A few very recent changes might be missing.
 
 If you need to go back further than the last save (for example, to undo a change you regret), the `backups\` folder holds one dated copy of `library.json` per day for the last 7 days. Quit the app from the tray, copy the dated file over `library.json`, and relaunch.
-3. **Neither the file nor the backup can be read**: set aside as `library.json.broken-<timestamp>` so the app can still start with an empty library. If you have an existing MongoDB library, use **File → Import Existing MongoDB Library…** to bring your novels back (see [Section 4](#4-first-launch--import-wizard)).
+3. **Neither the file nor the backup can be read**: set aside as `library.json.broken-<timestamp>` so the app can still start with an empty library. If you have an existing MongoDB library, use **File -> Import Existing MongoDB Library…** to bring your novels back (see [Section 4](#4-first-launch--import-wizard)).
 
 If you ever see a message saying the file **couldn't** be moved or repaired automatically (rare — usually because something else has it locked, e.g. a cloud-sync tool actively writing to it):
 
-1. Close Library of Yore completely (right-click the tray icon → Quit)
+1. Close Library of Yore completely (right-click the tray icon -> Quit)
 2. Make sure nothing else has `%LOCALAPPDATA%\LibraryOfYore\library.json` open (check antivirus/sync-tool activity)
 3. Relaunch — the same automatic repair described above will run again
 
@@ -645,7 +645,7 @@ If a cloud-sync tool (OneDrive, Dropbox, etc.) is set to sync `%LOCALAPPDATA%`, 
 **Symptom:** You upgraded from a pre-2.0 version, but the Import Wizard never appeared.
 
 - The check only looks at `localhost:27017` (or a custom URI saved in an old `config.json`) — make sure MongoDB is installed **and running** the first time you launch 2.0
-- The automatic check only runs once, before `library.json` exists. If you already have an (empty) local library, use **File → Import Existing MongoDB Library…** instead
+- The automatic check only runs once, before `library.json` exists. If you already have an (empty) local library, use **File -> Import Existing MongoDB Library…** instead
 
 ### Extension Shows "Disconnected"
 
@@ -777,10 +777,10 @@ Copy the `%LOCALAPPDATA%\LibraryOfYore\` folder for a complete backup (includes 
 Yes. `%LOCALAPPDATA%\LibraryOfYore\config.json` is plain JSON. Edit with any text editor. Delete it to reset all settings to defaults.
 
 **Q: Do I need to keep the app window open for the browser extension to work?**
-No. Close the window and Library of Yore hides to the system tray. The API server stays running and the extension keeps tracking your chapters. Use **File → Exit** (or **Quit** from the tray menu) when you want to fully stop the app.
+No. Close the window and Library of Yore hides to the system tray. The API server stays running and the extension keeps tracking your chapters. Use **File -> Exit** (or **Quit** from the tray menu) when you want to fully stop the app.
 
 **Q: How do I make the app start automatically with Windows?**
-On the first launch the app asks. You can also turn it on or off at any time from **File → Start with Windows**. It starts hidden in the tray at login and needs no administrator rights. See [Section 11](#11-system-tray--background-mode).
+On the first launch the app asks. You can also turn it on or off at any time from **File -> Start with Windows**. It starts hidden in the tray at login and needs no administrator rights. See [Section 11](#11-system-tray--background-mode).
 
 **Q: Where do I download the browser extension?**
 From the [Releases](https://github.com/NurAbir/Library-of-Yore/releases) page on GitHub. Download `Library.of.Yore.Browser.Extension.zip` from the latest release and follow the instructions in [Section 10](#10-browser-extension).
@@ -789,7 +789,7 @@ From the [Releases](https://github.com/NurAbir/Library-of-Yore/releases) page on
 Titles from every supported site (**Novelfire**, **NovelPhoenix**, **Wuxiaworld**, **FreeWebNovel**, **Flame Comics** and **MangaFire**), except those the site marks Completed. MangaFire's own Completed status isn't read, so its titles are always re-checked.
 
 **Q: Why does a Flame title show chapters as "behind" that I can't read for free?**
-Locked (paid) chapters still exist on the site, so they count as behind. The card tooltip shows how many of them are locked, e.g. "12 behind · 8 locked".
+Locked (paid) chapters still exist on the site, so they count as behind. The card tooltip shows how many of them are locked, e.g. "12 behind, 8 locked".
 
 **Q: Can I turn off auto-refresh?**
 There is no toggle yet. The refresh runs in the background and is non-intrusive — the UI remains fully responsive throughout. A setting to disable it is planned for a future release.
@@ -803,6 +803,6 @@ Make sure you replaced `scrapers/novelfire.py` with the v1.3.0 version and rebui
 
 **Happy Reading!**
 
-*Library of Yore v2.3.1*
+*Library of Yore v2.3.2*
 
 </div>

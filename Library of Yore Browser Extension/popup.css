@@ -1,4 +1,4 @@
-/* ── Reset & base ─────────────────────────────────────────────────────────── */
+/* Reset & base */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
@@ -30,7 +30,7 @@ body {
 
 .hidden { display: none !important; }
 
-/* ── Header ──────────────────────────────────────────────────────────────── */
+/* Header */
 header {
   display: flex;
   align-items: center;
@@ -71,23 +71,22 @@ header {
   50%       { opacity: 0.3; }
 }
 
-/* ── Main content ─────────────────────────────────────────────────────────── */
+/* Main content */
 main { padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
 
 .view { display: flex; flex-direction: column; gap: 10px; }
 
-/* ── Offline view ─────────────────────────────────────────────────────────── */
+/* Offline view */
 #view-offline {
   align-items: center;
   text-align: center;
   padding: 16px 0;
   gap: 6px;
 }
-.offline-icon { font-size: 28px; }
 .offline-title { font-weight: 700; color: var(--text); }
 .offline-sub { color: var(--text-dim); font-size: 12px; max-width: 240px; }
 
-/* ── Idle view ────────────────────────────────────────────────────────────── */
+/* Idle view */
 .idle-text { color: var(--text-dim); font-size: 12px; text-align: center; padding-top: 8px; }
 .idle-debug { color: var(--text-dim); font-size: 11px; text-align: center; padding: 8px 12px 0; word-break: break-all; }
 .site-list { list-style: none; display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; }
@@ -100,7 +99,7 @@ main { padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
   color: var(--text-dim);
 }
 
-/* ── Cards ────────────────────────────────────────────────────────────────── */
+/* Cards */
 .card {
   background: var(--bg-card);
   border: 1px solid var(--border);
@@ -179,7 +178,7 @@ main { padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
 .not-found-text { color: var(--text-dim); font-size: 12px; margin-bottom: 4px; }
 .not-found-hint { color: var(--text-sub); font-size: 11px; }
 
-/* ── Buttons ──────────────────────────────────────────────────────────────── */
+/* Buttons */
 .btn {
   display: inline-flex;
   align-items: center;
@@ -204,7 +203,7 @@ main { padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
 
 .btn--small { padding: 5px 12px; font-size: 11px; width: auto; }
 
-/* ── Footer ───────────────────────────────────────────────────────────────── */
+/* Footer */
 footer {
   border-top: 1px solid var(--border);
   padding: 8px 14px;
@@ -222,7 +221,7 @@ footer {
 }
 .btn-link:hover { color: var(--text); }
 
-/* ── Settings panel ───────────────────────────────────────────────────────── */
+/* Settings panel */
 #settings-panel {
   border-top: 1px solid var(--border);
   padding: 12px 14px;

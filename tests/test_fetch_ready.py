@@ -25,7 +25,7 @@ def _plain(monkeypatch, text, status=200):
     monkeypatch.setattr(requests, "get", lambda *a, **k: _Resp(text, status))
 
 
-# ── plain request stage ─────────────────────────────────────────────────────
+# plain request stage
 
 def test_plain_response_that_is_ready_is_used_without_a_browser(monkeypatch):
     _plain(monkeypatch, RENDERED)
@@ -61,7 +61,7 @@ def test_without_ready_nothing_changes(monkeypatch):
     assert base.fetch_html("https://x.test/") == "from browser"
 
 
-# ── browser stage (fake Playwright) ─────────────────────────────────────────
+# browser stage (fake Playwright)
 
 class _Page:
     def __init__(self, contents):

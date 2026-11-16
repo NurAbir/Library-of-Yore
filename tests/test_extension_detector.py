@@ -52,6 +52,18 @@ def test_the_title_is_preferred_over_headings_and_selection():
     assert r["info"]["chapter"] == "10"
 
 
+@pytest.mark.parametrize("title, novel", [
+    ("I Am the Fated Villain - Chapter 370", "I Am the Fated Villain"),
+    ("Reverend Insanity Manga, Chapter 1234", "Reverend Insanity"),
+    ("Reverend Insanity - Chapter 12.5 - MangaFire", "Reverend Insanity"),
+    ("Reverend Insanity Ch. 7", "Reverend Insanity"),
+])
+def test_the_series_title_is_read_from_the_tab_title(title, novel):
+    # The live tab title is "Title - Chapter N"; the old pattern only knew
+    # "Title Manga, Chapter N" and fell back to the URL slug.
+    assert one(title=title)["info"]["novelTitle"] == novel
+
+
 def test_words_that_merely_contain_ch_are_not_chapters():
     r = one(title="MangaFire - Search 12", headings=["Touch 5"])
     assert r["info"] is None and "no chapter number" in r["debug"]

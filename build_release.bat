@@ -23,7 +23,7 @@ if errorlevel 1 (
     exit /b 1
 )
 
-REM ── FIXED: use !INNO! (delayed expansion) inside the nested if block ──
+REM -- FIXED: use !INNO! (delayed expansion) inside the nested if block --
 set SKIP_INNO=0
 set INNO="C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
 if not exist !INNO! (

@@ -215,7 +215,7 @@ class MainWindow(QMainWindow):
             # Port already in use: another copy, or an unrelated process. The
             # app itself must still start; the extension just can't connect.
             self._api_error = str(e)
-        # Wire the extension → UI bridge: signal is thread-safe across Qt threads
+        # Wire the extension -> UI bridge: signal is thread-safe across Qt threads
         self.chapter_updated.connect(self._on_extension_chapter_update)
         api_server.set_progress_callback(
             lambda novel_id, chapter, latest=None: self.chapter_updated.emit(novel_id, str(chapter))
@@ -406,10 +406,10 @@ class MainWindow(QMainWindow):
         self.setStatusBar(self.statusbar)
         if self._api_error:
             self.statusbar.showMessage(
-                "Ready  •  Browser extension API unavailable — port 7337 is already in use"
+                "Ready - Browser extension API unavailable — port 7337 is already in use"
             )
         else:
-            self.statusbar.showMessage(f"Ready  •  Browser extension API: localhost:{api_server.PORT}")
+            self.statusbar.showMessage(f"Ready - Browser extension API: localhost:{api_server.PORT}")
 
     def _apply_theme(self):
         """Apply the shared dark theme stylesheet."""
@@ -505,7 +505,7 @@ class MainWindow(QMainWindow):
         self.statusbar.showMessage(f"Loaded {len(novels)} novels")
 
         if not novels:
-            self._show_empty_state("📚\nNo novels found — click \u201c+ Add Novel\u201d to get started!")
+            self._show_empty_state("No novels found — click \u201c+ Add Novel\u201d to get started!")
             return
 
         # Populate grid
@@ -568,7 +568,7 @@ class MainWindow(QMainWindow):
     def _on_extension_chapter_update(self, novel_id: str, chapter: str):
         """Slot called (on the main thread) when the browser extension updates progress."""
         self._update_card(novel_id)
-        self.statusbar.showMessage(f"Extension updated chapter → {chapter}", 3000)
+        self.statusbar.showMessage(f"Extension updated chapter -> {chapter}", 3000)
 
     def _on_chapter_plus(self, novel_id: str):
         novel = self.repo.get_by_id(novel_id)
@@ -667,7 +667,7 @@ class MainWindow(QMainWindow):
             return
 
         self.export_btn.setEnabled(False)
-        self.export_btn.setText("⏳ Exporting...")
+        self.export_btn.setText("Exporting...")
 
         self.export_worker = ExportWorker(self.repo, path)
         self.export_worker.finished.connect(self._on_export_done)
@@ -732,7 +732,7 @@ class MainWindow(QMainWindow):
             tray_menu.addAction(quit_action)
 
             self.tray_icon.setContextMenu(tray_menu)
-            # Single-click or double-click the tray icon → reopen window
+            # Single-click or double-click the tray icon -> reopen window
             self.tray_icon.activated.connect(self._on_tray_activated)
             self.tray_icon.show()
             self._tray_available = True
@@ -755,7 +755,7 @@ class MainWindow(QMainWindow):
             self._show_window()
 
     def _shutdown(self):
-        """One cleanup path for every real quit (File → Exit, tray Quit, or a
+        """One cleanup path for every real quit (File -> Exit, tray Quit, or a
         window close when no tray exists). Safe to call twice."""
         if self._shut_down:
             return
@@ -805,7 +805,7 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event):
         if self._force_quit or not self._tray_available:
-            # Real quit: File → Exit / tray Quit, or no tray to hide into.
+            # Real quit: File -> Exit / tray Quit, or no tray to hide into.
             self._force_quit = True
             self._shutdown()
             event.accept()
@@ -847,7 +847,7 @@ class MainWindow(QMainWindow):
             "Start Library of Yore automatically when you sign in to Windows?\n\n"
             "It will open hidden in the system tray so it can keep tracking your "
             "reading without getting in the way. You can change this later under "
-            "File → Start with Windows.",
+            "File -> Start with Windows.",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.Yes,
         )
@@ -860,7 +860,7 @@ class MainWindow(QMainWindow):
                 QMessageBox.warning(
                     self, "Start with Windows",
                     "Windows wouldn't accept the startup entry. You can try again "
-                    "from File → Start with Windows."
+                    "from File -> Start with Windows."
                 )
         else:
             startup.disable()
@@ -872,7 +872,7 @@ class MainWindow(QMainWindow):
             self.startup_action.blockSignals(False)
 
     def _set_startup_enabled(self, enabled: bool):
-        """File → Start with Windows toggled on or off."""
+        """File -> Start with Windows toggled on or off."""
         ok = startup.set_enabled(enabled)
         actual = startup.is_enabled()
 

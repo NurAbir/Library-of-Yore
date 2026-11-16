@@ -2,7 +2,7 @@
  * popup.js — drives the Library of Yore extension popup UI.
  */
 
-// ── DOM references ───────────────────────────────────────────────────────────
+// DOM references
 
 const $ = (id) => document.getElementById(id);
 
@@ -30,7 +30,7 @@ const btnSaveSettings  = $("btn-save-settings");
 const settingsPanel  = $("settings-panel");
 const settingAutoSync = $("setting-autosync");
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+// Helpers
 
 function showView(name) {
   viewOffline.classList.add("hidden");
@@ -61,7 +61,7 @@ function setDot(state) {
 
 function capitalize(s) { return s ? s[0].toUpperCase() + s.slice(1) : s; }
 
-// ── Why a supported site's page wasn't recognised ───────────────────────────
+// Why a supported site's page wasn't recognised
 
 async function showIdleDebug() {
   const el = $("idle-debug");
@@ -84,7 +84,7 @@ async function showIdleDebug() {
   } catch (_) { /* no access to the tab's URL: say nothing */ }
 }
 
-// ── Render ───────────────────────────────────────────────────────────────────
+// Render
 
 function render(state) {
   if (!state.appOnline) {
@@ -128,14 +128,14 @@ function render(state) {
 
     if (newer) {
       syncState.textContent  = (storedCh === null || storedCh === undefined
-          ? "⬆ Not started in your library"
-          : `⬆ Ahead of your library (Ch ${storedCh})`)
-        + (byTitle ? " · matched by title only: check it's the right entry" : "");
+          ? "Not started in your library"
+          : `Ahead of your library (Ch ${storedCh})`)
+        + (byTitle ? " - matched by title only: check it's the right entry" : "");
       syncState.className    = "sync-state";
       btnSync.disabled       = false;
       btnSync.textContent    = `Sync to Ch ${browserCh}`;
     } else if (same) {
-      syncState.textContent  = "✓ Up to date";
+      syncState.textContent  = "Up to date";
       syncState.className    = "sync-state sync-state--already";
       btnSync.disabled       = true;
       btnSync.textContent    = "Already synced";
@@ -152,7 +152,7 @@ function render(state) {
   }
 }
 
-// ── Init ─────────────────────────────────────────────────────────────────────
+// Init
 
 async function init() {
   setDot("connecting");
@@ -167,7 +167,7 @@ async function init() {
   }
 }
 
-// ── Sync button ───────────────────────────────────────────────────────────────
+// Sync button
 
 btnSync.addEventListener("click", async () => {
   const state = await send({ type: "GET_STATE" });
@@ -186,20 +186,20 @@ btnSync.addEventListener("click", async () => {
 
   if (result?.ok) {
     syncState.className   = "sync-state sync-state--success";
-    syncState.textContent = `✓ Synced to Ch ${state.reading.chapter}`;
+    syncState.textContent = `Synced to Ch ${state.reading.chapter}`;
     btnSync.textContent   = "Already synced";
     btnSync.disabled      = true;
     // Refresh lib chapter display
     libChapter.textContent = `Ch ${state.reading.chapter}`;
   } else {
     syncState.className   = "sync-state sync-state--error";
-    syncState.textContent = `✗ ${result?.error || "Sync failed"}`;
+    syncState.textContent = `${result?.error || "Sync failed"}`;
     btnSync.disabled      = false;
     btnSync.textContent   = "Retry Sync";
   }
 });
 
-// ── Settings panel ────────────────────────────────────────────────────────────
+// Settings panel
 
 btnSettings.addEventListener("click", () => {
   settingsPanel.classList.toggle("hidden");
@@ -221,6 +221,6 @@ btnSaveSettings.addEventListener("click", async () => {
   render(state || {});
 });
 
-// ── Boot ─────────────────────────────────────────────────────────────────────
+// Boot
 
 document.addEventListener("DOMContentLoaded", init);

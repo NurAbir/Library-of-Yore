@@ -22,7 +22,7 @@ MAX_CHAPTER = Decimal(1_000_000)
 MAX_RANGE_SPAN = 200_000
 
 
-# ── Single chapter numbers ────────────────────────────────────────────────────
+# Single chapter numbers
 
 def _to_decimal(value) -> Optional[Decimal]:
     if value is None or isinstance(value, bool):
@@ -81,7 +81,7 @@ def display(chapter: Optional[str], empty: str = "–") -> str:
     return chapter if chapter is not None else empty
 
 
-# ── Chapter lists as compact ranges ───────────────────────────────────────────
+# Chapter lists as compact ranges
 
 def normalize_list(values: Iterable) -> Tuple[List[str], bool]:
     """Parse, de-duplicate and sort chapter numbers ascending.
@@ -137,7 +137,7 @@ def decode_ranges(text: Optional[str]) -> List[str]:
     return sorted(result, key=key)
 
 
-# ── Reading progress ──────────────────────────────────────────────────────────
+# Reading progress
 
 @dataclass
 class Progress:

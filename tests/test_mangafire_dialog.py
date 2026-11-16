@@ -41,7 +41,7 @@ def test_everything_found_adds_no_note(dialog):
 def test_missing_details_are_listed_with_the_saved_page_path(dialog):
     dialog._on_scrape_finished(_result(), None)
     text = _status(dialog)
-    assert text.startswith("✓  I Am the Fated Villain")
+    assert text.startswith("I Am the Fated Villain")
     assert "Not found: author, genres, cover, latest chapter." in text
     assert r"C:\logs\mangafire_last_page.html" in text
     assert dialog.title_input.text() == "I Am the Fated Villain"

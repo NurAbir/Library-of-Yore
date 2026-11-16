@@ -93,8 +93,8 @@ def test_no_temp_files_left_behind(tmp_path):
 def test_utf8_round_trip(tmp_path):
     path = tmp_path / "lib.json"
     table = _db(path).table("novels")
-    table.insert({"title": "全知読者視点 — “Café” ✨"})
-    assert _db(path).table("novels").all()[0]["title"] == "全知読者視点 — “Café” ✨"
+    table.insert({"title": "全知読者視点 — “Café” 𠀀"})
+    assert _db(path).table("novels").all()[0]["title"] == "全知読者視点 — “Café” 𠀀"
     assert "全知" in path.read_text(encoding="utf-8")
 
 

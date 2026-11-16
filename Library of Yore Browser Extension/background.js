@@ -6,11 +6,11 @@
 const API = "http://127.0.0.1:7337";
 const STORAGE_KEY = "loy_state";
 
-// ── API helpers ─────────────────────────────────────────────────────────────
+// API helpers
 
 async function apiGet(path) {
   const res = await fetch(`${API}${path}`, { method: "GET" });
-  if (!res.ok) throw new Error(`API ${path} → ${res.status}`);
+  if (!res.ok) throw new Error(`API ${path} -> ${res.status}`);
   return res.json();
 }
 
@@ -20,7 +20,7 @@ async function apiPost(path, body) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new Error(`API ${path} → ${res.status}`);
+  if (!res.ok) throw new Error(`API ${path} -> ${res.status}`);
   return res.json();
 }
 
@@ -33,7 +33,7 @@ async function isAppRunning() {
   }
 }
 
-// ── State helpers ────────────────────────────────────────────────────────────
+// State helpers
 
 async function getState() {
   const data = await chrome.storage.local.get(STORAGE_KEY);
@@ -47,7 +47,7 @@ async function setState(patch) {
   return next;
 }
 
-// ── Find the library entry for a detected chapter ───────────────────────────
+// Find the library entry for a detected chapter
 //
 // One lookup sends both the chapter URL and the novel title. The app matches
 // by URL first and only falls back to the title (restricted to the same site)
@@ -69,7 +69,7 @@ async function findNovel(info) {
   }
 }
 
-// ── Chapter numbers ──────────────────────────────────────────────────────────
+// Chapter numbers
 // Chapters are strings ("12", "2.5", "0.01"). null means "not started", and
 // any chapter (including 0) is newer than that. The app makes the final,
 // exact decision; this is only a pre-check to avoid pointless requests.
@@ -80,7 +80,7 @@ function isNewer(a, b) {
   return parseFloat(a) > parseFloat(b);
 }
 
-// ── Update badge ─────────────────────────────────────────────────────────────
+// Update badge
 
 async function updateBadge(chapter) {
   if (chapter) {
@@ -91,7 +91,7 @@ async function updateBadge(chapter) {
   }
 }
 
-// ── Message handler ──────────────────────────────────────────────────────────
+// Message handler
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   (async () => {
@@ -216,7 +216,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   return true; // Keep channel open for async response
 });
 
-// ── Settings helpers ─────────────────────────────────────────────────────────
+// Settings helpers
 
 async function getSettings() {
   const data = await chrome.storage.local.get("loy_settings");
@@ -227,7 +227,7 @@ async function getSettings() {
   };
 }
 
-// ── Tab change: clear badge when leaving a novel site ────────────────────────
+// Tab change: clear badge when leaving a novel site
 
 chrome.tabs.onActivated.addListener(async ({ tabId }) => {
   try {

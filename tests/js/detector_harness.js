@@ -6,7 +6,7 @@ const path = require("path");
 
 const root = path.join(__dirname, "..", "..", "Library of Yore Browser Extension", "content.js");
 const src = fs.readFileSync(root, "utf8");
-const head = src.slice(0, src.indexOf("// ── Main"));
+const head = src.slice(0, src.indexOf("function detect"));
 
 const clock = { now: 1_000_000 };
 const state = { path: "/", title: "", og: "", headings: [], current: [] };

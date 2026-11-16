@@ -17,7 +17,7 @@ from scrapers.base import ScraperResult
 from scrapers.novelfire import NovelfireScraper
 
 
-# ── Duplicate inserts / repeated legacy import ───────────────────────────────
+# Duplicate inserts / repeated legacy import
 
 def test_insert_with_same_id_replaces_instead_of_duplicating():
     repo = NovelRepository()
@@ -45,7 +45,7 @@ def test_insert_collapses_duplicate_rows_left_by_older_versions():
     assert repo.get_by_id(novel._id).title == "Messy Dup (fixed)"
 
 
-# ── Wuxiaworld locked chapters in simple mode ────────────────────────────────
+# Wuxiaworld locked chapters in simple mode
 
 def test_locked_list_is_kept_without_a_chapter_list():
     novel = Novel(title="Against the Gods", current_chapter="2190", latest_chapter="2190")
@@ -57,7 +57,7 @@ def test_locked_list_is_kept_without_a_chapter_list():
     assert novel.locked_list == "2191-2192"
 
 
-# ── Chapter URLs are canonicalised, and old ones still match ────────────────
+# Chapter URLs are canonicalised, and old ones still match
 
 def test_scraper_canonical_page_url():
     scraper = get_scraper_for_url("https://novelfire.net/book/shadow-slave/chapter-5")
@@ -73,7 +73,7 @@ def test_legacy_chapter_url_matches_a_later_chapter():
     assert match is stored
 
 
-# ── Empty status filter means nothing, not everything ────────────────────────
+# Empty status filter means nothing, not everything
 
 def test_empty_status_filter_returns_no_novels():
     repo = NovelRepository()
@@ -83,7 +83,7 @@ def test_empty_status_filter_returns_no_novels():
     assert len(repo.get_all()) >= 2
 
 
-# ── API port collision ───────────────────────────────────────────────────────
+# API port collision
 
 def test_api_start_reports_port_in_use(monkeypatch):
     monkeypatch.setattr(api, "_server_instance", None)
@@ -96,14 +96,14 @@ def test_api_start_reports_port_in_use(monkeypatch):
         api.start()
 
 
-# ── Scraper detection by hostname ────────────────────────────────────────────
+# Scraper detection by hostname
 
 def test_lookalike_domain_is_not_claimed():
     assert get_scraper_for_url("https://novelfire.net.evil.example/book/x") is None
     assert get_scraper_for_url("https://novelfire.net/book/x") is not None
 
 
-# ── Unknown site status stays unknown, and site-dropped is separate ──────────
+# Unknown site status stays unknown, and site-dropped is separate
 
 def test_unknown_status_is_not_guessed():
     scraper = NovelfireScraper()
@@ -119,7 +119,7 @@ def test_site_dropped_does_not_become_a_reader_only_status():
     assert novel.status == "ongoing"  # still updatable by the site later
 
 
-# ── Cover files match their content ─────────────────────────────────────────
+# Cover files match their content
 
 def test_saved_cover_is_really_a_jpeg():
     buffer = io.BytesIO()
@@ -132,7 +132,7 @@ def test_saved_cover_is_really_a_jpeg():
     assert repo.get_cover(cover_id)[:3] == b"\xff\xd8\xff"
 
 
-# ── Start-with-Windows command and config ────────────────────────────────────
+# Start-with-Windows command and config
 
 def test_startup_command_includes_startup_flag():
     assert startup.STARTUP_ARG in startup.launch_command()

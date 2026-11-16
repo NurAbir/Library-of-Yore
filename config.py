@@ -6,7 +6,7 @@ from pathlib import Path
 
 APP_NAME = "LibraryOfYore"
 DISPLAY_NAME = "Library of Yore"
-APP_VERSION = "2.3.1"
+APP_VERSION = "2.3.2"
 
 # Paths
 APP_DATA_DIR = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData/Local")) / APP_NAME
@@ -20,7 +20,7 @@ LOGS_DIR.mkdir(exist_ok=True)
 
 CONFIG_FILE = APP_DATA_DIR / "config.json"
 
-# ── Local library storage (since v2.0) ───────────────────────────────────────
+# Local library storage (since v2.0)
 # Replaces MongoDB: novels live in one JSON file, covers live in a folder next
 # to it. No server, no separate install, no service to keep running.
 LIBRARY_FILE = APP_DATA_DIR / "library.json"
@@ -33,7 +33,7 @@ DAILY_BACKUPS_TO_KEEP = 7
 COVERS_DIR = APP_DATA_DIR / "covers"
 COVERS_DIR.mkdir(exist_ok=True)
 
-# ── Legacy MongoDB settings (pre-2.0 only) ───────────────────────────────────
+# Legacy MongoDB settings (pre-2.0 only)
 # Used solely by database/legacy_mongo.py to detect and one-time-import a
 # library created by a version of Library of Yore before 2.0. Nothing else in
 # the app touches these, and a machine with no MongoDB installed is completely

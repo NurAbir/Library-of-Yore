@@ -1,39 +1,22 @@
 """MangaFire (mangafire.to) scraper: manga, manhwa, manhua and one-shots.
 
-URLs. A series has a short id ("zl363", "zkw8p") that never changes, plus a
-slug that can (the site once redirected /read/lag.zl363/... to
-/title/zl363-lagg). So a series is always identified by its id.
-  Series page, current   /title/{id}-{slug}        e.g. /title/zl363-lagg
-  Series page, older     /manga/{slug}.{id}
-  Reader, older          /read/{slug}.{id}/{lang}/chapter-{N}
-  Reader, current       /title/{id}-{slug}/chapter/{internal chapter id}   (seen in a real browser;
-                         the number is an internal id such as 8205410, not the chapter number)
-The older forms redirect to /title/... (checked against live redirects,
-November 2026), so pasted old links keep working. Because chapter links on the
-current site carry internal ids, chapters are read from link text and visible
-text rather than from URLs (see _chapter_sets).
+A series is identified by its short id ("zl363", "zkw8p"), which never changes,
+never by its slug, which can:
+  /title/{id}-{slug}                        current series page
+  /manga/{slug}.{id}                        older series page
+  /read/{slug}.{id}/{lang}/chapter-{N}      older reader
+  /title/{id}-{slug}/chapter/{internal id}  current reader (the id is not a chapter number)
+The older forms redirect to the current one. Because the current reader URL
+carries only an internal id, chapter numbers come from link text and visible text,
+one language at a time (see _chapter_sets); decimals (7.1, 7.2) are supported.
 
-MangaFire lists chapters per language, keeps volumes in a separate list, and
-uses decimal chapters (7.1, 7.2).
-
-Design notes
-  * The chapter list is filled in by JavaScript from an API that other open-source
-    tools report is gated by a per-session token, so a plain request only gets the
-    page shell. fetch_html is given a `ready` check; until it passes, the page is
-    loaded in a real browser (Edge or Chrome) and awaited. A page that loads but
-    never becomes ready (a one-chapter series) is still used.
-  * Only the newest chapter is trusted. The chapter list is deliberately NOT
-    stored (progress uses simple mode): a page can render only part of a long
-    list, and a partial list would corrupt the progress percentage.
-  * A list of a single chapter is treated as "latest unknown": that is usually
-    just the "Read first chapter" button, not a real list.
-  * The un-rendered page shell carries a generic title ("MangaFire - Read Manga
-    Online Free") on every route, so a title that names the site is rejected.
-  * Author, genres, synopsis and the cover are read from the page's visible text
-    ("Author: ...", "Genres: ...") and image alt text as well as from links, since
-    the page's markup hasn't been checked. Missing data is left empty, never guessed.
-  * Every fetched page is saved to the app's logs folder (mangafire_last_page.html)
-    so a page that parses badly can be inspected without any extra tooling.
+The chapter list is filled in by JavaScript from a token-gated API, so a plain
+request only gets the page shell; fetch_html loads such a page in a real browser
+until a real list appears. Only the newest chapter is trusted (a partly loaded
+list would corrupt progress), a lone chapter counts as "latest unknown" (it is
+usually just the "read first chapter" button), and the generic shell title is
+rejected. Anything not found is left empty, never guessed. The fetched page is
+kept in the logs folder for inspection.
 """
 import re
 from typing import Dict, Iterable, Iterator, List, Optional, Tuple
@@ -68,7 +51,7 @@ _GENERIC_TEXT_RE = re.compile(r"mangafire|read manga|manga online|free online|fr
 UNKNOWN_LANG = "und"      # chapters that carry no language
 
 
-# ── URLs ────────────────────────────────────────────────────────────────────
+# URLs
 
 def split_series_segment(seg: str) -> Optional[Tuple[str, str]]:
     """(id, slug) from a series path segment, in any of the forms, else None.
@@ -141,7 +124,7 @@ def canonical_url(url: str) -> Optional[Tuple[str, Optional[str], str]]:
     return (info["id"], info["lang"], info["page_url"]) if info else None
 
 
-# ── Chapters ────────────────────────────────────────────────────────────────
+# Chapters
 
 def _chapter_links(hrefs: Iterable[str], sid: str) -> Iterator[Tuple[str, str]]:
     """(language, chapter number) for each link whose URL has the shape of a chapter of series `sid`."""
@@ -219,13 +202,23 @@ def _chapter_sets(soup: BeautifulSoup, sid: str) -> Tuple[Dict[str, set], str]:
 
 
 def _pick_language(by_lang: dict, wanted: Optional[str]) -> Optional[str]:
-    if wanted and wanted in by_lang:
-        return wanted
-    if "en" in by_lang:
-        return "en"
-    if by_lang:
-        return max(by_lang, key=lambda k: len(by_lang[k]))
-    return None
+    """Which language's chapter list to read. A language that holds a single
+    chapter is just the "read first chapter" button and says nothing about the
+    latest chapter, so one with a real list is preferred: the asked-for language
+    first, then English, then the fullest list."""
+    if not by_lang:
+        return None
+    listed = [lang for lang, nums in by_lang.items() if len(nums) >= 2]
+    if listed:
+        if wanted in listed:
+            return wanted
+        if "en" in listed:
+            return "en"
+        return max(listed, key=lambda lang: len(by_lang[lang]))
+    for lang in (wanted, "en"):
+        if lang in by_lang:
+            return lang
+    return max(by_lang, key=lambda lang: len(by_lang[lang]))
 
 
 def chapters_rendered(sid: str):
@@ -254,7 +247,7 @@ def _link_order(hrefs: List[str], sid: str, lang: Optional[str]) -> str:
     return "asc" if keys == sorted(keys) else "mixed"
 
 
-# ── Page details ────────────────────────────────────────────────────────────
+# Page details
 
 def _clean_title(text: str) -> str:
     """Strip site boilerplate from a <title> / og:title style string. Returns ""

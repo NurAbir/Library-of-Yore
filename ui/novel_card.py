@@ -62,11 +62,11 @@ class NovelCard(QFrame):
             pixmap = bytes_to_pixmap(cover_bytes, 188, 236)
             self.cover_label.setPixmap(pixmap)
         else:
-            self.cover_label.setText("📖\nNo Cover")
+            self.cover_label.setText("No Cover")
         layout.addWidget(self.cover_label, alignment=Qt.AlignmentFlag.AlignCenter)
 
         # "Updated" badge — overlaid on the top-right of the cover, hidden until mark_updated()
-        self.update_badge = QLabel("✦ Updated", self)
+        self.update_badge = QLabel("Updated", self)
         self.update_badge.setStyleSheet(f"""
             background-color: {theme.ACCENT};
             color: {theme.ACCENT_TEXT_ON};
@@ -137,7 +137,7 @@ class NovelCard(QFrame):
         self.plus_btn.clicked.connect(lambda: self.chapter_plus.emit(self.novel_id))
         btn_layout.addWidget(self.plus_btn, stretch=2)
 
-        self.link_btn = QPushButton("🔗")
+        self.link_btn = QPushButton("URL")
         self.link_btn.setToolTip("Open source URL")
         self.link_btn.setFixedWidth(34)
         self.link_btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -208,7 +208,7 @@ class NovelCard(QFrame):
         else:
             state = "Latest chapter unknown"
         if p.locked_behind:
-            state += f" · {p.locked_behind} locked"
+            state += f", {p.locked_behind} locked"
         tip = f"{n.title}\nChapter {current}" + (f" of {latest}" if latest else "") + f"\n{state}"
         if p.mode == "list":
             tip += f"\n{p.total} chapters listed on the site"

@@ -25,7 +25,7 @@ def set_progress_callback(fn):
     _progress_callback = fn
 
 
-# ── CORS & extension origins ───────────────────────────────────────────────────
+# CORS & extension origins
 #
 # Only the browser extension (and pages served from this machine itself) may
 # read or write through this API from a browser. Before v2.0.2 this was a
@@ -53,14 +53,14 @@ def _cors_origin(origin: str) -> Optional[str]:
     return None
 
 
-# ── Request handler ────────────────────────────────────────────────────────────
+# Request handler
 
 class Handler(BaseHTTPRequestHandler):
 
     def log_message(self, fmt, *args):
         pass  # Silence default access log
 
-    # ── Shared helpers ─────────────────────────────────────────────────────────
+    # Shared helpers
 
     def _send_cors_headers(self):
         allowed = _cors_origin(self.headers.get("Origin", ""))
@@ -93,14 +93,14 @@ class Handler(BaseHTTPRequestHandler):
             raise ValueError("request body must be a JSON object")
         return data
 
-    # ── OPTIONS (preflight) ────────────────────────────────────────────────────
+    # OPTIONS (preflight)
 
     def do_OPTIONS(self):
         self.send_response(204)
         self._send_cors_headers()
         self.end_headers()
 
-    # ── GET ────────────────────────────────────────────────────────────────────
+    # GET
 
     def do_GET(self):
         parsed = urlparse(self.path)
@@ -139,7 +139,7 @@ class Handler(BaseHTTPRequestHandler):
         else:
             self._error("Not found", 404)
 
-    # ── POST ───────────────────────────────────────────────────────────────────
+    # POST
 
     def do_POST(self):
         parsed = urlparse(self.path)
@@ -185,7 +185,7 @@ class Handler(BaseHTTPRequestHandler):
             self._error("Not found", 404)
 
 
-# ── Helpers ────────────────────────────────────────────────────────────────────
+# Helpers
 
 def _novel_dict(n) -> dict:
     p = n.progress
@@ -353,7 +353,7 @@ def _find_by_title(novels, title: str, browser_domain: str = "", content_type: s
     return partial[0] if len(partial) == 1 else None
 
 
-# ── Server lifecycle ───────────────────────────────────────────────────────────
+# Server lifecycle
 
 def start():
     """Start the API server in a daemon thread. Safe to call multiple times.

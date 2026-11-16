@@ -1,4 +1,4 @@
-// ── Per-site detection logic ────────────────────────────────────────────────
+// Per-site detection logic
 //
 // Each detector returns { novelTitle, chapter, slug, sourceUrl, ... } or null.
 // `chapter` is a string such as "12", "2.5" or "0.01" (never parseInt'd:
@@ -27,7 +27,7 @@ const DETECTORS = {
     const ch = _chapterFromPath(m[2]);
     if (!ch) return null;
 
-    // Try breadcrumb → h1 → og:title
+    // Try breadcrumb -> h1 -> og:title
     const novelTitle =
       document.querySelector(".breadcrumb a:nth-child(2)")?.textContent?.trim() ||
       document.querySelector("h1.chapter-title ~ a, .chapter-novel-title, .novel-title")?.textContent?.trim() ||
@@ -201,8 +201,13 @@ const DETECTORS = {
 
     // The un-rendered page carries the site's generic title; never use that as the novel's
     const usable = (t) => (t && !/mangafire|read manga|manga online|free online/i.test(t) ? t : "");
+    // "Title - Chapter 12", "Title Manga, Chapter 12", "Title Ch. 7": strip the chapter part
+    const fromTitle = document.title
+      .replace(/\s*[-–|,]?\s*(?:chapter|chap|ch)\b\.?\s*#?\s*\d+(?:\.\d+)?\b.*$/i, "")
+      .replace(/\s+Manga\s*$/i, "")
+      .trim();
     const novelTitle =
-      usable(document.title.match(/^(.*?)\s+Manga,?\s+Chapter\s+\d/i)?.[1]?.trim()) ||
+      usable(fromTitle) ||
       usable(_ogTitle()?.replace(/^Read\s+/i, "").replace(/\s+Manga\b.*$/i, "").trim()) ||
       (slug || series).replace(/-/g, " ");
 
@@ -217,13 +222,13 @@ const DETECTORS = {
   },
 };
 
-// ── Helpers ─────────────────────────────────────────────────────────────────
+// Helpers
 
 function _ogTitle() {
   return document.querySelector("meta[property='og:title']")?.content || "";
 }
 
-// ── Chapter number read from the page (for sites whose chapter URLs carry only an internal id) ──
+// Chapter number read from the page (for sites whose chapter URLs carry only an internal id)
 
 // "Chapter 123", "Chap 12.5", "Ch. 7": the keyword must start a word, so "Search 12" never matches
 const _CHAPTER_LABEL = /\b(?:chapter|chap|ch)\b\.?\s*#?\s*(\d+(?:\.\d+)?)/i;
@@ -267,7 +272,7 @@ function _hostname() {
   return location.hostname.replace(/^www\./, "");
 }
 
-// ── Main ─────────────────────────────────────────────────────────────────────
+// Main
 
 function detect() {
   const detector = DETECTORS[_hostname()];

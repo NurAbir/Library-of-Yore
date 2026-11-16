@@ -49,7 +49,7 @@ def _parse(html, lang=None):
     return mf.parse_page(html, SID, lang, ScraperResult(source_name="mangafire"))
 
 
-# ── URLs and factory ────────────────────────────────────────────────────────
+# URLs and factory
 
 @pytest.mark.parametrize("url, id_, slug, lang, chapter, page_url", [
     ("https://mangafire.to/title/zl363-lagg", "zl363", "lagg", None, None,
@@ -98,7 +98,7 @@ def test_factory_returns_mangafire_scraper():
     assert get_scraper_for_url("https://flamecomics.xyz/series/2").SOURCE_NAME == "flamecomics"
 
 
-# ── Parsing ─────────────────────────────────────────────────────────────────
+# Parsing
 
 def test_latest_is_the_highest_chapter_with_decimals_in_numeric_order():
     html = _page([_read("en", n) for n in ("1", "2", "9", "10", "100", "7.2", "100.5")])
@@ -144,6 +144,16 @@ def test_without_english_the_fullest_language_is_used():
     html = _page([_read("fr", n) for n in (1, 2)] + [_read("pt-br", n) for n in (1, 2, 3, 4)])
     r = _parse(html)
     assert r.raw_data["language"] == "pt-br" and r.latest_chapter == "4"
+
+
+def test_a_lone_button_in_english_does_not_hide_another_languages_real_list():
+    # English holds only the "read first chapter" button while Spanish holds the
+    # real list: the lone button must not win merely because it is English.
+    html = _page([_read("en", 1)] + [_read("es-la", n) for n in range(1, 40)])
+    r = _parse(html)
+    assert r.raw_data["language"] == "es-la" and r.latest_chapter == "39"
+    r = _parse(html, "en")                        # asking for "en" is no better
+    assert r.raw_data["language"] == "es-la" and r.latest_chapter == "39"
 
 
 def test_other_series_links_on_the_page_are_ignored():
@@ -226,7 +236,7 @@ def test_link_order_is_reported_for_diagnostics():
     assert order([1]) == "n/a"
 
 
-# ── scrape() ────────────────────────────────────────────────────────────────
+# scrape()
 
 @pytest.mark.parametrize("given, fetched", [
     ("https://mangafire.to/read/lag.zl363/en/chapter-3", "https://mangafire.to/manga/lag.zl363"),
@@ -297,7 +307,7 @@ def test_fully_rendered_plain_response_needs_no_browser(monkeypatch):
     assert MangaFireScraper().scrape(f"https://mangafire.to/title/{CURRENT}").latest_chapter == "7"
 
 
-# ── Library behaviour ───────────────────────────────────────────────────────
+# Library behaviour
 
 def test_refresh_sets_latest_and_type_but_never_touches_your_status_or_progress():
     n = Novel(title="L.A.G", source_url=f"https://mangafire.to/title/{CURRENT}",
@@ -352,7 +362,7 @@ def test_other_sites_are_still_matched_by_path():
     assert api._series_key("https://mangafire.to/title/zl363-lagg") == "zl363"
 
 
-# ── Extension registration ──────────────────────────────────────────────────
+# Extension registration
 
 def test_every_detector_site_is_registered_in_manifest_background_and_popup():
     sites = re.findall(r'^  "([a-z0-9.\-]+)": \(\) =>', (EXT / "content.js").read_text("utf-8"), re.M)
@@ -372,7 +382,7 @@ def test_build_scripts_bundle_the_scraper():
         assert "scrapers.mangafire" in (root / name).read_text("utf-8"), name
 
 
-# ── Real-page text shapes ───────────────────────────────────────────────────
+# Real-page text shapes
 # The labels below ("Author: ...", "Genres: ...", "Chapter 341: Jul 01, 2026", "the latest
 # chapter 341 is available") are the visible text of a crawled MangaFire series page
 # (I Am The Fated Villain, id m2wxz). The tags around them are guesses.
@@ -492,7 +502,7 @@ def test_the_real_series_matches_whatever_url_the_browser_shows(browser_url):
     assert api._find_by_url(library, browser_url)._id == "fv"
 
 
-# ── Debug copy of the fetched page ──────────────────────────────────────────
+# Debug copy of the fetched page
 
 def test_the_fetched_page_is_saved_for_inspection(monkeypatch, tmp_path):
     monkeypatch.setattr(mf, "LOGS_DIR", tmp_path / "logs")
@@ -513,7 +523,7 @@ def test_an_unwritable_logs_folder_never_breaks_a_scrape(monkeypatch, tmp_path):
     assert r.success and r.latest_chapter == "2" and r.raw_data["saved_page"] is None
 
 
-# ── More chapter URL forms ──────────────────────────────────────────────────
+# More chapter URL forms
 
 @pytest.mark.parametrize("path, chapter", [
     ("/read/m2wxz/en/chapter-108", "108"),
@@ -568,7 +578,7 @@ def test_a_saved_series_matches_the_current_reader_url():
     assert n is not None and n._id == "ri"
 
 
-# ── Authors and genres from different structures ────────────────────────────
+# Authors and genres from different structures
 
 def _author_of(body, head=""):
     return _fated(f"<html><head>{head}</head><body><h1>X</h1>{body}</body></html>").author
